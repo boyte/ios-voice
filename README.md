@@ -8,11 +8,12 @@ It owns Apple speech, audio-session coordination, lifecycle recovery, and a
 bounded speech queue. Your app continues to own its UI, composer, messages,
 networking, persistence, and the decision to send or speak text.
 
-> **Project status:** this checkout is ready to be consumed as a local Swift
-> package and includes a runnable reference app. It does not yet have a public
-> Git remote, versioned release, or remote Swift Package URL. Physical-device
-> validation (routes, interruptions, AirPods, external audio, and endurance)
-> is still required before treating a release as device-qualified.
+> **Project status:** AppLocalVoice is publicly available as a Swift package
+> from [`boyte/ios-voice`](https://github.com/boyte/ios-voice), beginning with
+> version `0.1.0`, and includes a runnable reference app. This is an early 0.x
+> release. Physical-device validation (routes, interruptions, AirPods,
+> external audio, and endurance) is still required before treating a release
+> as device-qualified for your app.
 
 ## Scope boundary
 
@@ -53,25 +54,34 @@ network connectivity, while microphone audio remains local.
 
 ## Install
 
-Until this project has a published remote repository, add the checked-out
-folder as a **local** Swift package.
+Add the package from GitHub, or use a local checkout while developing against
+unreleased changes.
 
 ### Xcode application
 
-1. Choose **File → Add Package Dependencies… → Add Local…**.
-2. Select this `ios-voice` checkout.
-3. Add the `AppLocalVoice` library product to your iOS app target.
+1. Choose **File → Add Package Dependencies…**.
+2. Enter `https://github.com/boyte/ios-voice.git`.
+3. Select version `0.1.0` or later, subject to your compatibility policy.
+4. Add the `AppLocalVoice` library product to your iOS app target.
 
-### Local Swift package
+### Swift package
 
-In the host package's `Package.swift`, point to the local checkout (adjust the
-path for your workspace):
+In the host package's `Package.swift`:
+
+```swift
+.package(url: "https://github.com/boyte/ios-voice.git", from: "0.1.0")
+```
+
+Then add `"AppLocalVoice"` to the target's dependencies.
+
+### Local checkout
+
+For unreleased development, use Xcode's **Add Local…** option or point a host
+package at the checkout:
 
 ```swift
 .package(path: "../ios-voice")
 ```
-
-Then add `"AppLocalVoice"` to the target's dependencies.
 
 ### Privacy usage text
 
