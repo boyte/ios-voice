@@ -1,9 +1,8 @@
 # Support
 
-AppLocalVoice is a pre-release Swift package for local Apple speech input and
-output. This checkout does not yet have a hosted issue tracker, discussion
-forum, or support contact. Do not treat this file as a promise of a response
-channel until the first-release hosting steps are complete.
+AppLocalVoice is an early 0.x Swift package for local Apple speech input and
+output. Use the hosted GitHub repository's issue tracker for reproducible bugs
+and focused proposals; this document does not promise response times.
 
 ## Before asking for help
 

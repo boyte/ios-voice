@@ -1,10 +1,10 @@
 # First open-source release
 
-This is the handoff guide for AppLocalVoice's first public release. It is
-intentionally conservative: the current checkout has no Git repository,
-canonical remote, tag, or published package URL. It also has no completed
-physical-device release matrix. Do not describe it as published or
-device-qualified until every applicable gate below has evidence.
+This records the first public-release procedure and the corrective procedure
+for subsequent releases. AppLocalVoice is published at
+`https://github.com/boyte/ios-voice` with immutable `v0.1.0`, but it has no
+completed physical-device release matrix. Do not describe any release as
+device-qualified until every applicable device gate below has evidence.
 
 For the recurring release procedure after the first release, see
 [RELEASING.md](../RELEASING.md). The authoritative work graph is in Beads; the
@@ -84,33 +84,30 @@ audio, transcript text, speech text, credentials, or private paths.
 
 These are administrative changes and require the release owner's authority:
 
-1. Initialize and publish the canonical repository; choose the default branch
-   and public Swift Package URL.
-2. Replace `.github/CODEOWNERS`'s placeholder with real maintainers.
-3. Enable private vulnerability reporting and update [SECURITY.md](../SECURITY.md)
-   with the actual reporting route.
+1. Confirm the canonical repository, default branch, and public Swift Package
+   URL remain correct.
+2. Keep `.github/CODEOWNERS` aligned with real maintainers.
+3. Keep private vulnerability reporting enabled and [SECURITY.md](../SECURITY.md)
+   aligned with its GitHub reporting route.
 4. Configure protected `main`, required CI checks, review policy, and any tag
    signing policy.
 5. Configure the repository's issue/discussion settings and add the actual
    conduct-reporting contact required by [CODE_OF_CONDUCT.md](../CODE_OF_CONDUCT.md).
 6. From a clean external clone, verify URL-based Xcode resolution and a
-   versioned `Package.swift` dependency. Then replace the local-only install
-   wording in [README.md](../README.md) and [Quickstart](Quickstart.md).
+   versioned `Package.swift` dependency.
 
 Do not replace placeholders with guessed usernames, URLs, email addresses, or
 security contacts.
 
 ## 4. Bootstrap the first tag
 
-The current tag workflow requires a previous reachable semantic-version tag
-for its API comparison. That is correct for later releases but means it cannot
-validate the first tag as written. The `DIST-BOOTSTRAP` work item must define
-and test the bootstrap policy before a `v0.1.0` tag is pushed. Acceptable work
-must preserve fail-closed comparison for every later tag and must not invent a
-previous public API.
+The first public tag exposed that the release workflow needs an explicit
+bootstrap policy when no previous reachable semantic-version tag exists.
+That policy must validate the candidate without inventing a previous public API
+and must preserve fail-closed comparison for every later tag.
 
-After that work is closed, select `v0.1.0` only if the release owner has
-reviewed the current public API, device evidence, known limitations, and
+After that work is closed, select the next version only if the release owner
+has reviewed the current public API, device evidence, known limitations, and
 release notes. Create the tag from a clean, reviewed commit. The tag workflow,
 source archive, checksum, and hosted release must all describe the same commit.
 

@@ -4,12 +4,12 @@ AppLocalVoice is an iOS Swift Package. A release is a source tag whose
 checked-in API baseline, documentation, deterministic tests, and device report
 describe the same source state.
 
-For the first public release, start with
+For public-release history and the corrective release procedure, start with
 [First open-source release](Documentation/FirstOpenSourceRelease.md). The
-current checkout has no Git remote or prior tag, and the tag workflow's
-previous-version comparison must be bootstrapped before `v0.1.0` can be
-validated. This document describes the recurring release procedure; it does
-not authorize publication while those gates remain open.
+current checkout has a Git remote and `v0.1.0`; the tag workflow's
+previous-version comparison still needs a tested first-tag bootstrap policy
+before a corrective tag can be fully validated. This document does not
+authorize publication while required CI or device-evidence gates remain open.
 
 Binary result bundles, logs, and benchmark outputs are release artifacts, not
 checked-in source. Keep them outside the repository and commit only the
@@ -136,27 +136,17 @@ is open.
 
 ## Git-host requirements
 
-This checkout currently has no Git directory or remote. The offline audit is
-therefore the strongest repository-level check available here:
-
-```sh
-python3 Scripts/audit-release-scaffolding.py
-```
-
-It verifies the release-facing file set, executable source-archive helper,
-immutable workflow action pins, and explicit hardware/Git-host language. It
-reports the missing repository, remote, and maintainer identities as `OPEN`
-instead of treating them as locally satisfiable. After importing the source
-into the real repository, run the stricter promotion check:
+The repository has a Git directory and canonical `origin`. Run the release
+audit in host mode before promotion:
 
 ```sh
 python3 Scripts/audit-release-scaffolding.py --require-host
 ```
 
-That check must be run only after `main` protection, real CODEOWNERS identities,
-required checks, vulnerability reporting, and the reviewed release commit are
-configured on the Git host. Those settings cannot be verified from this source
-archive.
+It verifies the release-facing file set, executable source-archive helper,
+immutable workflow action pins, host remote, and real CODEOWNERS identity.
+Branch protection, required checks, private vulnerability reporting, signing,
+and a reviewed release commit remain GitHub release-owner responsibilities.
 
 The repository must have protected `main`, CODEOWNERS mapped to real
 maintainers, required CI checks, vulnerability reporting enabled, and a clean

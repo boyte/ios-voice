@@ -1,12 +1,12 @@
 # Release evidence status
 
-Status: **pre-release; not ready to publish**.
+Status: **public 0.1.0 released; corrective 0.1.1 work in progress**.
 
-AppLocalVoice currently has no Git repository/remote, release tag, canonical
-Swift Package URL, or completed physical-device matrix. This document is the
-current release-status record. It intentionally does not publish XCTest,
-pass/skip, benchmark, or public-symbol totals: the native result evidence,
-generated test inventory, and public-API baseline paths are being reconciled.
+AppLocalVoice is published at `https://github.com/boyte/ios-voice` with an
+immutable `v0.1.0` tag. That initial release is not device-qualified and its
+hosted CI and release metadata require corrective follow-up. This document is
+the current release-status record; it intentionally does not publish native
+XCTest, benchmark, or device-pass claims without retained matching evidence.
 
 Older audit narratives and local result-bundle paths were removed from this
 current-status document because they are not reproducible release evidence for
@@ -19,8 +19,8 @@ The following checks were run for the current release-documentation update:
 
 - repository-relative Markdown validation passed;
 - the Python release/evidence tooling suite passed; and
-- the release-scaffolding audit passed its local structural checks while
-  reporting the missing Git repository and placeholder CODEOWNERS identity.
+- the release-scaffolding audit checks the tracked public scaffolding; and
+- the repository has a canonical Git remote and public Swift Package URL.
 
 These checks prove documentation and tool behavior only. They do not establish
 the current package build, native XCTest execution, API compatibility, or
@@ -29,20 +29,17 @@ evidence.
 
 ## Explicitly unproven or impossible in this worktree
 
-- The checked-in test inventory, native XCTest result identities, and
-  pass/skip evidence are not yet reconciled; no test total is release-ready.
-- The checked-in public API baselines require reconciliation before a current
-  symbol total or API-validation claim can be published.
+- Hosted CI must pass for the corrective release commit, including clean-tree
+  documentation, API baseline, simulator, benchmark, and memory gates.
 - Physical iPhone/iPad routes, interruptions, backgrounding, Apple model and
   voice availability, endurance, energy/thermal behavior, and crash/relaunch
   recovery remain unproven without physical reports.
 - API compatibility against a previous release is impossible until a prior
   semantic tag exists.
-- Protected branches, reviewed commits, real CODEOWNERS identities, private
-  vulnerability reporting, signing policy, tags, and hosted artifacts require
-  a real Git host and release-owner authority.
-- The tag workflow currently expects a previous semantic tag, so first-tag
-  bootstrap behavior must be implemented and tested before `v0.1.0` is pushed.
+- Branch protection, required checks, and any tag-signing policy remain GitHub
+  repository settings that must be reviewed by the release owner.
+- The tag workflow needs an explicit first-tag bootstrap policy before the
+  corrective release can be considered fully release-validated.
 
 ## Link and gate review
 
@@ -55,11 +52,11 @@ simulator/provider seam check never substitutes for physical-device evidence.
 
 | Gate | Required evidence | Current disposition |
 | --- | --- | --- |
-| Test and API evidence reconciliation | Generated inventory, native results, both API baselines, and reviewed validator results agree | Open local work; do not publish counts |
+| Test and API evidence reconciliation | Generated inventory, native results, both API baselines, and reviewed validator results agree | Corrective 0.1.1 work; do not publish unverified counts |
 | Physical-device matrix | Complete, privacy-reviewed reports for the required devices, routes, models, voices, interruptions, endurance, and crash/relaunch | Open external evidence |
-| Hosted project | Canonical remote, real CODEOWNERS, protected branch, required checks, private security/conduct routes, and clean reviewed commit | Open Git-host work |
+| Hosted project | Canonical remote, real CODEOWNERS, protected branch, required checks, private security/conduct routes, and clean reviewed commit | Remote and ownership configured; branch protection/review settings remain release-owner work |
 | First-tag bootstrap | Reviewed workflow policy that validates the first semantic tag without inventing a previous release | Open distribution work |
-| Publication | Tagged release, matching archive/checksum/evidence manifest, hosted release notes, and clean external package resolution | Not started |
+| Publication | Tagged release, matching archive/checksum/evidence manifest, hosted release notes, and clean external package resolution | 0.1.0 published; 0.1.1 awaits corrective CI and evidence |
 
 Follow the exact commands and handoff order in
 [FirstOpenSourceRelease.md](FirstOpenSourceRelease.md). Keep a gate open when

@@ -2,12 +2,15 @@
 
 All notable changes to AppLocalVoice are documented here.
 
-This file describes the current source worktree. It is not a release history:
-this checkout has no Git history, remote, tag, or published release from which
-to reconstruct one. The first published version will receive a dated section
-only after its tag, release evidence, and release notes are created.
-
 ## Unreleased
+
+### Corrective release work
+
+- Track CI, documentation, governance, and privacy corrections for the next
+  patch release. Physical-device qualification remains separate release
+  evidence and is not implied by this work.
+
+## 0.1.0 — 2026-07-29
 
 ### Public API and integration
 
@@ -54,15 +57,11 @@ only after its tag, release evidence, and release notes are created.
   the boundaries between simulator evidence, physical-device validation, and
   hosted-release requirements.
 
-### Known limitations and release gates
+### Known limitations
 
-- No AppLocalVoice version has been tagged or published yet, so no previous
-  public API exists for a release-to-release compatibility comparison.
 - Physical-device validation remains required for microphone routes, Bluetooth
   and wired audio, interruptions, model and voice availability, endurance,
   thermal/energy behavior, and crash/relaunch behavior.
-- A Git host, canonical package URL, real CODEOWNERS identities, private
-  vulnerability reporting, protected branches, required checks, first-tag
-  validation, signing policy, and published artifacts remain outstanding.
-- Test and public-symbol totals are intentionally omitted until the current
-  generated inventories and native release evidence are reconciled.
+- The initial `v0.1.0` release predates completion of the hosted first-tag
+  workflow bootstrap. Subsequent releases must retain the explicit bootstrap
+  or previous-tag compatibility validation described in [RELEASING.md](RELEASING.md).

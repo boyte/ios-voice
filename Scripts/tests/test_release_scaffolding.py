@@ -19,11 +19,10 @@ def load_module():
 
 
 class ReleaseScaffoldingTests(unittest.TestCase):
-    def test_current_checkout_passes_and_reports_external_open_items(self) -> None:
-        errors, open_items = load_module().audit(ROOT)
+    def test_current_public_checkout_passes_host_audit(self) -> None:
+        errors, open_items = load_module().audit(ROOT, require_host=True)
         self.assertEqual(errors, [])
-        self.assertTrue(any("Git repository" in item for item in open_items))
-        self.assertTrue(any("CODEOWNERS" in item for item in open_items))
+        self.assertEqual(open_items, [])
 
     def test_missing_required_file_fails_closed(self) -> None:
         module = load_module()
@@ -57,9 +56,23 @@ class ReleaseScaffoldingTests(unittest.TestCase):
                 errors,
             )
 
-    def test_require_host_is_stricter_than_offline_mode(self) -> None:
-        errors, _ = load_module().audit(ROOT, require_host=True)
-        self.assertTrue(any("real Git repository" in item for item in errors))
+    def test_require_host_rejects_an_offline_fixture(self) -> None:
+        module = load_module()
+        with tempfile.TemporaryDirectory() as directory:
+            root = pathlib.Path(directory)
+            for relative in module.REQUIRED_FILES:
+                path = root / relative
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text(
+                    "* @owner\n" if relative == ".github/CODEOWNERS"
+                    else "Git-host requirements physical-device previous release\n",
+                    encoding="utf-8",
+                )
+            (root / "Scripts/create-source-archive.sh").chmod(0o755)
+            (root / ".github/workflows/test.yml").write_text("- uses: owner/action@" + "a" * 40 + "\n", encoding="utf-8")
+            (root / ".github/workflows/release-validation.yml").write_text("- uses: owner/action@" + "b" * 40 + "\n", encoding="utf-8")
+            errors, _ = module.audit(root, require_host=True)
+            self.assertTrue(any("real Git repository" in item for item in errors))
 
 
 if __name__ == "__main__":

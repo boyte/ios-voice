@@ -4,14 +4,10 @@ AppLocalVoice has no network service, account, credential store, or telemetry. I
 
 Do not include microphone recordings, transcript text, TTS text, credentials, or private app data in issues or pull requests.
 
-For a suspected security or privacy issue, use GitHub's **Report a
-vulnerability** flow when it is enabled for the repository. This pre-release
-checkout does not yet have a hosted private-reporting channel; do not disclose
-the issue publicly. The release owner must configure private vulnerability
-reporting and replace this paragraph with the actual reporting route before
-the first publication. Include the affected version, iOS version, device,
-reproduction steps that do not contain personal speech, and the expected versus
-observed behavior.
+For a suspected security or privacy issue, use this repository's GitHub
+**Report a vulnerability** flow. Do not disclose the issue publicly. Include
+the affected version, iOS version, device, reproduction steps that do not
+contain personal speech, and the expected versus observed behavior.
 
 Maintainers should acknowledge a report within 7 days, keep the reporter
 updated while triaging it, and publish a coordinated fix and advisory when a
