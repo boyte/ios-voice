@@ -1,0 +1,59 @@
+# Swift Package Manager build products and per-machine package state
+.build/
+.swiftpm/
+
+# Xcode build products, indexes, and personal workspace state
+DerivedData/
+build/
+xcuserdata/
+*.xcuserstate
+*.xccheckout
+*.xcscmblueprint
+*.moved-aside
+*.pbxuser
+*.mode1v3
+*.mode2v3
+*.perspectivev3
+
+# Compiler, test, and coverage output
+*.abi.json
+*.swiftmodule
+*.swiftdoc
+*.swiftsourceinfo
+*.xcresult
+*.xccovarchive
+*.xccovreport
+*.profdata
+*.gcda
+*.gcno
+
+# Packaged release output
+dist/
+
+# Device validation writes a raw, machine-local Xcode log beside its report.
+# Keep the sanitized Markdown/JSON report and any deliberately retained,
+# privacy-reviewed evidence trackable.
+Documentation/device-reports/*.log
+
+# Operating-system files
+.DS_Store
+
+# Beads Viewer local configuration and caches. Beads work data is governed by
+# .beads/.gitignore during private development. Do not publish the current
+# work graph: it contains local paths, device metadata, and agent notes.
+.beads/
+.bv/
+
+# Local agent configuration and internal planning/review material. Public
+# release documentation is kept in README.md, CHANGELOG.md, RELEASING.md,
+# SUPPORT.md, SECURITY.md, and Documentation/.
+.agents/
+.codex/
+AGENTS.md
+Documentation/AgentCoordination.md
+Documentation/AdoptionMatrix.md
+Documentation/PublicAPIReview.md
+reviews/
+PLAN.md
+PLAN-*.md
+HARDENING_TRACKER.md

@@ -1,0 +1,316 @@
+name: Release validation
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: read
+
+env:
+  XCODE_VERSION: '26.0'
+  IOS_SIMULATOR_RUNTIME: 'iOS-26-0'
+
+jobs:
+  validate-release:
+    runs-on: macos-15
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - id: iphone-17-pro
+            name: iPhone 17 Pro
+          - id: ipad-pro-11-m5
+            name: iPad Pro 11-inch (M5)
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+      - name: Select pinned Xcode
+        uses: maxim-lobanov/setup-xcode@60606e260d2fc5762a71e64e74b2174e8ea3c8bd # v1.6.0
+        with:
+          xcode-version: ${{ env.XCODE_VERSION }}
+      - name: Validate package manifest and release tooling
+        env:
+          PYTHONDONTWRITEBYTECODE: '1'
+        run: |
+          swift package dump-package >/dev/null
+          python3 Scripts/audit-release-scaffolding.py
+          python3 Scripts/test-inventory.py --check Documentation/TestInventory.json
+          python3 Scripts/validate-documentation.py
+          python3 -m unittest discover -s Scripts/tests -p 'test_*.py' -v
+          Scripts/validate-evidence-tooling.sh
+      - name: Build package and test bundle with warnings as errors
+        run: |
+          swift build \
+            --sdk "$(xcrun --sdk iphonesimulator --show-sdk-path)" \
+            --triple arm64-apple-ios26.0-simulator \
+            --scratch-path "$RUNNER_TEMP/release-package-build" \
+            -Xswiftc -warnings-as-errors
+          swift build \
+            --target AppLocalVoiceTests \
+            --sdk "$(xcrun --sdk iphonesimulator --show-sdk-path)" \
+            --triple arm64-apple-ios26.0-simulator \
+            --scratch-path "$RUNNER_TEMP/release-test-build" \
+            -Xswiftc -warnings-as-errors
+          xcodebuild -project Testing/AppLocalVoice.xcodeproj \
+            -scheme AppLocalVoiceTests \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath "$RUNNER_TEMP/release-test-host-build" \
+            CODE_SIGNING_ALLOWED=NO build-for-testing
+      - name: Select pinned release simulator
+        id: release-simulator
+        shell: bash
+        run: |
+          set -euo pipefail
+          SIMULATOR_NAME='${{ matrix.name }}'
+          SIMULATOR_JSON="$RUNNER_TEMP/release-simulators.json"
+          xcrun simctl list devices available --json > "$SIMULATOR_JSON"
+          DEVICE_ID="$(python3 - "$SIMULATOR_NAME" "$IOS_SIMULATOR_RUNTIME" "$SIMULATOR_JSON" <<'PY'
+          import json
+          import sys
+
+          name, runtime_suffix, path = sys.argv[1:]
+          with open(path, encoding="utf-8") as handle:
+              document = json.load(handle)
+          matches = [
+              (runtime, device["udid"])
+              for runtime, devices in document.get("devices", {}).items()
+              if runtime.endswith(runtime_suffix)
+              for device in devices
+              if device.get("isAvailable", True) and device.get("name") == name and device.get("udid")
+          ]
+          if len(matches) != 1:
+              raise SystemExit(
+                  f"expected exactly one {name} on runtime *{runtime_suffix}; "
+                  f"found {len(matches)}: {[runtime for runtime, _ in matches]}"
+              )
+          print(matches[0][1])
+          PY
+          )"
+          rm -f "$SIMULATOR_JSON"
+          test -n "$DEVICE_ID"
+          echo "id=$DEVICE_ID" >> "$GITHUB_OUTPUT"
+          echo "runtime=$IOS_SIMULATOR_RUNTIME" >> "$GITHUB_OUTPUT"
+          xcrun simctl list devices available | awk -v id="$DEVICE_ID" 'index($0, "(" id ")") {print; exit}'
+      - name: Run complete release simulator suite
+        id: release-simulator-tests
+        shell: bash
+        env:
+          DEVICE_ID: ${{ steps.release-simulator.outputs.id }}
+        run: |
+          set -euo pipefail
+          test -n "$DEVICE_ID"
+          trap 'xcrun simctl shutdown "$DEVICE_ID" >/dev/null 2>&1 || true' EXIT
+          for PASS in 1 2; do
+            LOG="$RUNNER_TEMP/release-simulator-$PASS.log"
+            RESULT="$RUNNER_TEMP/release-simulator-$PASS.xcresult"
+            xcrun simctl shutdown "$DEVICE_ID" || true
+            xcrun simctl erase "$DEVICE_ID"
+            xcrun simctl boot "$DEVICE_ID"
+            xcrun simctl bootstatus "$DEVICE_ID" -b
+            perl -e '$SIG{ALRM}=sub { print STDERR "release simulator watchdog expired\n"; exit 124 }; alarm 1500; exec @ARGV' -- \
+              xcodebuild test -project Testing/AppLocalVoice.xcodeproj -scheme AppLocalVoiceTests \
+              -destination "platform=iOS Simulator,id=$DEVICE_ID" \
+              -destination-timeout 120 \
+              -derivedDataPath "$RUNNER_TEMP/release-simulator-derived-$PASS" \
+              -resultBundlePath "$RESULT" \
+              -parallel-testing-enabled NO -maximum-parallel-testing-workers 1 \
+              CODE_SIGNING_ALLOWED=NO 2>&1 | tee "$LOG"
+            test -d "$RESULT"
+            test -s "$LOG"
+            grep -q "TEST SUCCEEDED" "$LOG"
+            xcrun xcresulttool get test-results summary \
+              --path "$RESULT" --format json > "$RUNNER_TEMP/release-test-summary-$PASS.json"
+            xcrun xcresulttool get test-results tests \
+              --path "$RESULT" --format json > "$RUNNER_TEMP/release-test-details-$PASS.json"
+            python3 Scripts/validate-test-result.py \
+              --inventory Documentation/TestInventory.json \
+              --summary "$RUNNER_TEMP/release-test-summary-$PASS.json" \
+              --tests "$RUNNER_TEMP/release-test-details-$PASS.json" \
+              --max-skipped 1
+          done
+      - name: Sanitize release simulator logs
+        if: always()
+        run: |
+          set -euo pipefail
+          for PASS in 1 2; do
+            LOG="$RUNNER_TEMP/release-simulator-$PASS.log"
+            if [[ -s "$LOG" ]]; then
+              python3 Scripts/sanitize-evidence-log.py "$LOG" "$LOG.sanitized"
+              mv "$LOG.sanitized" "$LOG"
+            fi
+          done
+      - name: Run release benchmark and memory gates
+        env:
+          APPLOCALVOICE_SIMULATOR_NAME: ${{ matrix.name }}
+          APPLOCALVOICE_SIMULATOR_RUNTIME: ${{ env.IOS_SIMULATOR_RUNTIME }}
+        run: |
+          set -euo pipefail
+          perl -e '$SIG{ALRM}=sub { print STDERR "release benchmark watchdog expired\n"; exit 124 }; alarm 600; exec @ARGV' -- \
+            Scripts/run-benchmarks.sh "$RUNNER_TEMP/release-benchmarks"
+          perl -e '$SIG{ALRM}=sub { print STDERR "release memory watchdog expired\n"; exit 124 }; alarm 600; exec @ARGV' -- \
+            Scripts/run-memory-sweep.sh "$RUNNER_TEMP/release-memory"
+      - name: Validate release tag and locate previous release
+        id: tags
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG="$GITHUB_REF_NAME"
+          [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          test "$(git rev-parse --verify HEAD)" = "$(git rev-parse --verify "$TAG^{commit}")"
+          PREVIOUS="$(python3 - "$TAG" <<'PY'
+          import re
+          import subprocess
+          import sys
+
+          current = sys.argv[1]
+          current_version = tuple(int(part) for part in current[1:].split("."))
+          tags = subprocess.check_output(["git", "tag", "--list"], text=True).splitlines()
+          candidates = []
+          for tag in tags:
+              match = re.fullmatch(r"v(\d+)\.(\d+)\.(\d+)", tag)
+              if not match or tag == current:
+                  continue
+              version = tuple(int(part) for part in match.groups())
+              if version >= current_version:
+                  continue
+              commit = subprocess.check_output(["git", "rev-parse", f"{tag}^{{commit}}"], text=True).strip()
+              if subprocess.run(["git", "merge-base", "--is-ancestor", commit, "HEAD"], check=False).returncode == 0:
+                  candidates.append((version, tag))
+          if candidates:
+              print(max(candidates)[1])
+          PY
+          )"
+          if [[ -z "$PREVIOUS" ]]; then
+            echo "A previous semantic-version tag is required for API compatibility validation." >&2
+            exit 1
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "previous=$PREVIOUS" >> "$GITHUB_OUTPUT"
+      - name: Emit candidate public symbol graph
+        env:
+          TAG: ${{ steps.tags.outputs.tag }}
+        run: Scripts/emit-public-symbol-graph.sh "$RUNNER_TEMP/candidate-symbols" "$RUNNER_TEMP/candidate-derived"
+      - name: Validate candidate API graph, DocC, and clean client
+        run: |
+          python3 Scripts/validate-public-api.py \
+            --symbol-graph "$RUNNER_TEMP/candidate-symbols/AppLocalVoice.symbols.json"
+          python3 Scripts/validate-public-docs.py \
+            --symbol-graph "$RUNNER_TEMP/candidate-symbols/AppLocalVoice.symbols.json" \
+            --baseline Documentation/PublicAPISymbols.json
+          rm -rf "$RUNNER_TEMP/candidate-docc"
+          xcrun docc convert Documentation/AppLocalVoice.docc \
+            --additional-symbol-graph-dir "$RUNNER_TEMP/candidate-symbols" \
+            --fallback-display-name AppLocalVoice \
+            --fallback-bundle-identifier com.applocalvoice.documentation \
+            --output-path "$RUNNER_TEMP/candidate-docc" \
+            --warnings-as-errors
+          cat > "$RUNNER_TEMP/CleanClient.swift" <<'SWIFT'
+          import AppLocalVoice
+
+          @MainActor
+          func cleanClientImport() async throws {
+              let voice = AppLocalVoice()
+              let _: VoiceState = await voice.state
+              let _: SpeechCapabilities = await voice.capabilities()
+              try await voice.startListening()
+              let text = try await voice.finishListening()
+              try await voice.speak(text)
+              await voice.close()
+          }
+          SWIFT
+          CANDIDATE_BUILD="$RUNNER_TEMP/candidate-derived"
+          MODULE_DIR="$(find "$CANDIDATE_BUILD" -type d -path '*/debug/Modules' -print -quit)"
+          MODULE_MAP="$(find "$CANDIDATE_BUILD" -type f -path '*AppLocalVoiceAudioEngineSafe.build/module.modulemap' -print -quit)"
+          test -d "$MODULE_DIR"
+          test -f "$MODULE_MAP"
+          xcrun swiftc -typecheck \
+            -target arm64-apple-ios26.0-simulator \
+            -sdk "$(xcrun --sdk iphonesimulator --show-sdk-path)" \
+            -I "$MODULE_DIR" \
+            -Xcc -fmodule-map-file="$MODULE_MAP" \
+            -Xcc -I -Xcc "$GITHUB_WORKSPACE/Sources/AppLocalVoiceAudioEngineSafe/include" \
+            "$RUNNER_TEMP/CleanClient.swift"
+      - name: Emit previous public symbol graph
+        env:
+          PREVIOUS: ${{ steps.tags.outputs.previous }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          git worktree add --detach "$RUNNER_TEMP/previous" "$PREVIOUS"
+          "$RUNNER_TEMP/previous/Scripts/emit-public-symbol-graph.sh" \
+            "$RUNNER_TEMP/previous-symbols" \
+            "$RUNNER_TEMP/previous-derived"
+      - name: Compare public API
+        run: |
+          python3 Scripts/compare-public-api.py \
+            --previous "$RUNNER_TEMP/previous-symbols/AppLocalVoice.symbols.json" \
+            --candidate "$RUNNER_TEMP/candidate-symbols/AppLocalVoice.symbols.json" \
+            --output "$RUNNER_TEMP/api-compatibility.json"
+      - name: Create deterministic source archive
+        env:
+          TAG: ${{ steps.tags.outputs.tag }}
+        run: Scripts/create-source-archive.sh "$TAG" "$RUNNER_TEMP/dist"
+      - name: Create release evidence manifest
+        env:
+          TAG: ${{ steps.tags.outputs.tag }}
+          DEVICE_ID: ${{ steps.release-simulator.outputs.id }}
+        run: |
+          set -euo pipefail
+          export SIMULATOR_RUNTIME='${{ steps.release-simulator.outputs.runtime }}'
+          export SIMULATOR_OS_BUILD="$(xcrun simctl spawn "$DEVICE_ID" sw_vers -buildVersion)"
+          SOURCE_DATE_EPOCH="$(git show -s --format=%ct HEAD)" \
+          python3 Scripts/create-artifact-manifest.py \
+            --output "$RUNNER_TEMP/release-manifest.json" \
+            --status passed \
+            --destination "release tag $TAG; ${{ matrix.name }} $SIMULATOR_RUNTIME" \
+            --source-revision "$(git rev-parse HEAD)" \
+            --toolchain "$(xcodebuild -version | tr '\n' '; ' | sed 's/; $//')" \
+            --sdk "$(xcrun --sdk iphonesimulator --show-sdk-version)" \
+            --runtime "$SIMULATOR_RUNTIME" \
+            --os-build "$SIMULATOR_OS_BUILD" \
+            --evidence-kind release \
+            --test-inventory Documentation/TestInventory.json \
+            --api-symbol-graph "$RUNNER_TEMP/candidate-symbols/AppLocalVoice.symbols.json" \
+            --artifact "$RUNNER_TEMP/candidate-symbols" \
+            --artifact "$RUNNER_TEMP/previous-symbols" \
+            --artifact "$RUNNER_TEMP/api-compatibility.json" \
+            --artifact "$RUNNER_TEMP/dist" \
+            --artifact "$RUNNER_TEMP/release-simulator-1.xcresult" \
+            --artifact "$RUNNER_TEMP/release-simulator-1.log" \
+            --artifact "$RUNNER_TEMP/release-simulator-2.xcresult" \
+            --artifact "$RUNNER_TEMP/release-simulator-2.log" \
+            --artifact "$RUNNER_TEMP/release-test-summary-1.json" \
+            --artifact "$RUNNER_TEMP/release-test-summary-2.json" \
+            --artifact "$RUNNER_TEMP/release-test-details-1.json" \
+            --artifact "$RUNNER_TEMP/release-test-details-2.json" \
+            --artifact "$RUNNER_TEMP/release-benchmarks" \
+            --artifact "$RUNNER_TEMP/release-memory" \
+            --artifact "$RUNNER_TEMP/candidate-docc" \
+            --artifact Documentation/TestInventory.json \
+            --require-clean-git
+      - name: Upload release validation evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: applocalvoice-release-${{ steps.tags.outputs.tag }}-${{ matrix.id }}
+          path: |
+            ${{ runner.temp }}/release-manifest.json
+            ${{ runner.temp }}/api-compatibility.json
+            ${{ runner.temp }}/dist
+            ${{ runner.temp }}/release-simulator-1.xcresult
+            ${{ runner.temp }}/release-simulator-1.log
+            ${{ runner.temp }}/release-simulator-2.xcresult
+            ${{ runner.temp }}/release-simulator-2.log
+            ${{ runner.temp }}/release-test-summary-1.json
+            ${{ runner.temp }}/release-test-summary-2.json
+            ${{ runner.temp }}/release-test-details-1.json
+            ${{ runner.temp }}/release-test-details-2.json
+            ${{ runner.temp }}/release-benchmarks
+            ${{ runner.temp }}/release-memory
+            ${{ runner.temp }}/candidate-docc
+            ${{ runner.temp }}/candidate-symbols
+            ${{ runner.temp }}/previous-symbols
+          if-no-files-found: error
