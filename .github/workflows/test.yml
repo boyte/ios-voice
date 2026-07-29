@@ -209,6 +209,40 @@ jobs:
           xcrun simctl erase "$DEVICE_ID"
           xcrun simctl boot "$DEVICE_ID"
           xcrun simctl bootstatus "$DEVICE_ID" -b
+      - name: Resolve simulator runtime build
+        id: simulator-provenance
+        shell: bash
+        env:
+          SIMULATOR_RUNTIME: ${{ steps.simulator.outputs.runtime }}
+        run: |
+          set -euo pipefail
+          RUNTIMES_JSON="$RUNNER_TEMP/AppLocalVoice-runtimes.json"
+          xcrun simctl list runtimes --json > "$RUNTIMES_JSON"
+          SIMULATOR_OS_BUILD="$(python3 - "$SIMULATOR_RUNTIME" "$RUNTIMES_JSON" <<'PY'
+          import json
+          import sys
+
+          runtime_suffix, path = sys.argv[1:]
+          with open(path, encoding="utf-8") as handle:
+              runtimes = json.load(handle).get("runtimes", [])
+          matches = [
+              runtime.get("buildversion", "")
+              for runtime in runtimes
+              if runtime.get("isAvailable", True)
+              and runtime.get("identifier", "").endswith(runtime_suffix)
+              and runtime.get("buildversion")
+          ]
+          if len(matches) != 1:
+              raise SystemExit(
+                  f"expected one available runtime ending {runtime_suffix!r}; "
+                  f"found {len(matches)}"
+              )
+          print(matches[0])
+          PY
+          )"
+          rm -f "$RUNTIMES_JSON"
+          test -n "$SIMULATOR_OS_BUILD"
+          echo "os-build=$SIMULATOR_OS_BUILD" >> "$GITHUB_OUTPUT"
       - name: Run simulator tests
         id: simulator-tests
         shell: bash
@@ -302,17 +336,16 @@ jobs:
       - name: Create simulator evidence manifest
         if: always()
         env:
-          DEVICE_ID: ${{ steps.simulator.outputs.id }}
           SIMULATOR_RUNTIME: ${{ steps.simulator.outputs.runtime }}
+          SIMULATOR_OS_BUILD: ${{ steps.simulator-provenance.outputs.os-build }}
         run: |
           set -euo pipefail
-          export SIMULATOR_OS_BUILD="$(xcrun simctl spawn "$DEVICE_ID" sw_vers -buildVersion 2>/dev/null || true)"
           test -n "$SIMULATOR_OS_BUILD"
           SOURCE_DATE_EPOCH="$(git show -s --format=%ct HEAD)" \
           python3 Scripts/create-artifact-manifest.py \
             --output "$RUNNER_TEMP/AppLocalVoice-simulator-manifest.json" \
             --status "${{ steps.simulator-tests.outcome }}" \
-            --destination "iOS Simulator ${{ matrix.name }} $DEVICE_ID" \
+            --destination "iOS Simulator ${{ matrix.name }} $SIMULATOR_RUNTIME" \
             --source-revision "$(git rev-parse HEAD)" \
             --toolchain "$(xcodebuild -version | tr '\n' '; ' | sed 's/; $//')" \
             --sdk "$(xcrun --sdk iphonesimulator --show-sdk-version)" \
@@ -423,7 +456,9 @@ jobs:
 
   memory-sweep:
     runs-on: macos-15
-    timeout-minutes: 15
+    # This has the same clean-simulator setup cost as benchmarks. Preserve a
+    # bounded watchdog while allowing cold erase/boot time on hosted macOS.
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - name: Select pinned Xcode
@@ -435,7 +470,7 @@ jobs:
         shell: bash
         run: |
           set -o pipefail
-          perl -e '$SIG{ALRM}=sub { print STDERR "memory sweep watchdog expired\n"; exit 124 }; alarm 600; exec @ARGV' -- \
+          perl -e '$SIG{ALRM}=sub { print STDERR "memory sweep watchdog expired\n"; exit 124 }; alarm 1200; exec @ARGV' -- \
             Scripts/run-memory-sweep.sh "$RUNNER_TEMP/AppLocalVoice-memory-sweep" 2>&1 | tee "$RUNNER_TEMP/AppLocalVoice-memory-sweep-ci.log"
       - name: Upload memory sweep artifacts
         if: always()

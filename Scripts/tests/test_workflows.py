@@ -44,6 +44,8 @@ class WorkflowContractTests(unittest.TestCase):
         self.assertIn("Scripts/validate-test-result.py", text)
         self.assertIn('--tests "$RUNNER_TEMP/AppLocalVoice-test-details.json"', text)
         self.assertIn("SIMULATOR_OS_BUILD", text)
+        self.assertIn("xcrun simctl list runtimes --json", text)
+        self.assertNotIn('simctl spawn "$DEVICE_ID" sw_vers', text)
         self.assertIn("xcrun --sdk iphonesimulator --show-sdk-version", text)
         self.assertNotIn("xcrun --sdk iphoneos --show-sdk-version", text)
         self.assertIn("Scripts/sanitize-evidence-log.py", text)
@@ -92,8 +94,9 @@ class WorkflowContractTests(unittest.TestCase):
 
         self.assertNotIn("SWIFT_TREAT_WARNINGS_AS_ERRORS=YES", text)
         self.assertNotIn("needs: package-and-docs", text)
-        self.assertIn("alarm 1200", text)
-        self.assertIn("timeout-minutes: 30", text)
+        self.assertGreaterEqual(text.count("alarm 1200"), 2)
+        self.assertGreaterEqual(text.count("timeout-minutes: 30"), 3)
+        self.assertNotIn('destination "iOS Simulator ${{ matrix.name }} $DEVICE_ID"', text)
 
     def test_external_actions_are_immutable_commit_pins(self) -> None:
         for path in (ROOT / ".github" / "workflows").glob("*.yml"):

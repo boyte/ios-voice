@@ -95,6 +95,40 @@ jobs:
           echo "id=$DEVICE_ID" >> "$GITHUB_OUTPUT"
           echo "runtime=$IOS_SIMULATOR_RUNTIME" >> "$GITHUB_OUTPUT"
           xcrun simctl list devices available | awk -v id="$DEVICE_ID" 'index($0, "(" id ")") {print; exit}'
+      - name: Resolve release simulator runtime build
+        id: release-simulator-provenance
+        shell: bash
+        env:
+          SIMULATOR_RUNTIME: ${{ steps.release-simulator.outputs.runtime }}
+        run: |
+          set -euo pipefail
+          RUNTIMES_JSON="$RUNNER_TEMP/release-runtimes.json"
+          xcrun simctl list runtimes --json > "$RUNTIMES_JSON"
+          SIMULATOR_OS_BUILD="$(python3 - "$SIMULATOR_RUNTIME" "$RUNTIMES_JSON" <<'PY'
+          import json
+          import sys
+
+          runtime_suffix, path = sys.argv[1:]
+          with open(path, encoding="utf-8") as handle:
+              runtimes = json.load(handle).get("runtimes", [])
+          matches = [
+              runtime.get("buildversion", "")
+              for runtime in runtimes
+              if runtime.get("isAvailable", True)
+              and runtime.get("identifier", "").endswith(runtime_suffix)
+              and runtime.get("buildversion")
+          ]
+          if len(matches) != 1:
+              raise SystemExit(
+                  f"expected one available runtime ending {runtime_suffix!r}; "
+                  f"found {len(matches)}"
+              )
+          print(matches[0])
+          PY
+          )"
+          rm -f "$RUNTIMES_JSON"
+          test -n "$SIMULATOR_OS_BUILD"
+          echo "os-build=$SIMULATOR_OS_BUILD" >> "$GITHUB_OUTPUT"
       - name: Run complete release simulator suite
         id: release-simulator-tests
         shell: bash
@@ -285,11 +319,11 @@ jobs:
       - name: Create release evidence manifest
         env:
           TAG: ${{ steps.tags.outputs.tag }}
-          DEVICE_ID: ${{ steps.release-simulator.outputs.id }}
+          SIMULATOR_OS_BUILD: ${{ steps.release-simulator-provenance.outputs.os-build }}
         run: |
           set -euo pipefail
           export SIMULATOR_RUNTIME='${{ steps.release-simulator.outputs.runtime }}'
-          export SIMULATOR_OS_BUILD="$(xcrun simctl spawn "$DEVICE_ID" sw_vers -buildVersion)"
+          test -n "$SIMULATOR_OS_BUILD"
           SOURCE_DATE_EPOCH="$(git show -s --format=%ct HEAD)" \
           python3 Scripts/create-artifact-manifest.py \
             --output "$RUNNER_TEMP/release-manifest.json" \
