@@ -1,0 +1,148 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		A10000010000000000000001 /* AppLocalVoiceTestHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000001 /* AppLocalVoiceTestHost.swift */; };
+		A10000010000000000000002 /* AppLocalVoice in Frameworks */ = {isa = PBXBuildFile; productRef = A30000010000000000000001 /* AppLocalVoice */; };
+		A10000010000000000000003 /* AppleSpeechInputSeamTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000010 /* AppleSpeechInputSeamTests.swift */; };
+		A10000010000000000000004 /* AppleSpeechOutputSeamTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000011 /* AppleSpeechOutputSeamTests.swift */; };
+		A10000010000000000000005 /* AudioBufferConverterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000012 /* AudioBufferConverterTests.swift */; };
+		A10000010000000000000006 /* AudioEngineSafetyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000013 /* AudioEngineSafetyTests.swift */; };
+		A10000010000000000000007 /* AudioSessionControllerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000014 /* AudioSessionControllerTests.swift */; };
+		A10000010000000000000008 /* BenchmarkTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000015 /* BenchmarkTests.swift */; };
+		A10000010000000000000009 /* BoundedTestSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000016 /* BoundedTestSupport.swift */; };
+		A1000001000000000000000A /* BoundedTestSupportTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000017 /* BoundedTestSupportTests.swift */; };
+		A1000001000000000000000B /* DeterministicFailureHarnessTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000018 /* DeterministicFailureHarnessTests.swift */; };
+		A1000001000000000000000C /* DeterministicFuzzTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000019 /* DeterministicFuzzTests.swift */; };
+		A1000001000000000000000D /* DeterministicLifecycleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000001000000000000001A /* DeterministicLifecycleTests.swift */; };
+		A1000001000000000000000E /* DeterministicRaceCancellationStressTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000001000000000000001B /* DeterministicRaceCancellationStressTests.swift */; };
+		A1000001000000000000000F /* DeterministicTestSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000001000000000000001C /* DeterministicTestSupport.swift */; };
+		A10000010000000000000010 /* DiagnosticsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000001000000000000001D /* DiagnosticsTests.swift */; };
+		A10000010000000000000011 /* FacadeContractTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000001000000000000001E /* FacadeContractTests.swift */; };
+		A10000010000000000000012 /* FinalizationCancellationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000001000000000000001F /* FinalizationCancellationTests.swift */; };
+		A10000010000000000000013 /* MemorySweepTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000020 /* MemorySweepTests.swift */; };
+		A10000010000000000000014 /* RecoveryLifecycleAuditTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000021 /* RecoveryLifecycleAuditTests.swift */; };
+		A10000010000000000000015 /* SpeechConfigurationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000022 /* SpeechConfigurationTests.swift */; };
+		A10000010000000000000016 /* SpeechTextChunkerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000023 /* SpeechTextChunkerTests.swift */; };
+		A10000010000000000000017 /* StateMachineHardeningTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000024 /* StateMachineHardeningTests.swift */; };
+		A10000010000000000000018 /* StateMachineTransitionTableTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000025 /* StateMachineTransitionTableTests.swift */; };
+		A10000010000000000000019 /* TranscriptAssemblerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000026 /* TranscriptAssemblerTests.swift */; };
+		A1000001000000000000001A /* VoiceCoordinatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000027 /* VoiceCoordinatorTests.swift */; };
+		A1000001000000000000001F /* PublicModelContractTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000001000000000000002C /* PublicModelContractTests.swift */; };
+		A10000010000000000000020 /* RecognitionFacadeContractTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000001000000000000002D /* RecognitionFacadeContractTests.swift */; };
+		A10000010000000000000021 /* RuntimeFacadeGateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000001000000000000002E /* RuntimeFacadeGateTests.swift */; };
+		A10000010000000000000022 /* SpeechQueueEngineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A2000001000000000000002F /* SpeechQueueEngineTests.swift */; };
+		A10000010000000000000023 /* QueueFacadeIntegrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000030 /* QueueFacadeIntegrationTests.swift */; };
+		A10000010000000000000024 /* AppleSpeechTranscriptMapperTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000031 /* AppleSpeechTranscriptMapperTests.swift */; };
+		A10000010000000000000025 /* QueueResourceBudgetTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000032 /* QueueResourceBudgetTests.swift */; };
+		A10000010000000000000026 /* CanonicalVoiceEventDeliveryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000033 /* CanonicalVoiceEventDeliveryTests.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		A20000010000000000000001 /* AppLocalVoiceTestHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppLocalVoiceTestHost.swift; sourceTree = "<group>"; };
+		A20000010000000000000002 /* TestHost-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = TestHost-Info.plist; sourceTree = "<group>"; };
+		A20000010000000000000003 /* AppLocalVoiceTestHost.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = AppLocalVoiceTestHost.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A20000010000000000000004 /* AppLocalVoiceTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AppLocalVoiceTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		A20000010000000000000010 /* AppleSpeechInputSeamTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleSpeechInputSeamTests.swift; sourceTree = "<group>"; };
+		A20000010000000000000011 /* AppleSpeechOutputSeamTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleSpeechOutputSeamTests.swift; sourceTree = "<group>"; };
+		A20000010000000000000012 /* AudioBufferConverterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioBufferConverterTests.swift; sourceTree = "<group>"; };
+		A20000010000000000000013 /* AudioEngineSafetyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioEngineSafetyTests.swift; sourceTree = "<group>"; };
+		A20000010000000000000014 /* AudioSessionControllerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioSessionControllerTests.swift; sourceTree = "<group>"; };
+		A20000010000000000000015 /* BenchmarkTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BenchmarkTests.swift; sourceTree = "<group>"; };
+		A20000010000000000000016 /* BoundedTestSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BoundedTestSupport.swift; sourceTree = "<group>"; };
+		A20000010000000000000017 /* BoundedTestSupportTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BoundedTestSupportTests.swift; sourceTree = "<group>"; };
+		A20000010000000000000018 /* DeterministicFailureHarnessTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeterministicFailureHarnessTests.swift; sourceTree = "<group>"; };
+		A20000010000000000000019 /* DeterministicFuzzTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeterministicFuzzTests.swift; sourceTree = "<group>"; };
+		A2000001000000000000001A /* DeterministicLifecycleTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeterministicLifecycleTests.swift; sourceTree = "<group>"; };
+		A2000001000000000000001B /* DeterministicRaceCancellationStressTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeterministicRaceCancellationStressTests.swift; sourceTree = "<group>"; };
+		A2000001000000000000001C /* DeterministicTestSupport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeterministicTestSupport.swift; sourceTree = "<group>"; };
+		A2000001000000000000001D /* DiagnosticsTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiagnosticsTests.swift; sourceTree = "<group>"; };
+		A2000001000000000000001E /* FacadeContractTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FacadeContractTests.swift; sourceTree = "<group>"; };
+		A2000001000000000000001F /* FinalizationCancellationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FinalizationCancellationTests.swift; sourceTree = "<group>"; };
+		A20000010000000000000020 /* MemorySweepTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MemorySweepTests.swift; sourceTree = "<group>"; };
+		A20000010000000000000021 /* RecoveryLifecycleAuditTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecoveryLifecycleAuditTests.swift; sourceTree = "<group>"; };
+		A20000010000000000000022 /* SpeechConfigurationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeechConfigurationTests.swift; sourceTree = "<group>"; };
+		A20000010000000000000023 /* SpeechTextChunkerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeechTextChunkerTests.swift; sourceTree = "<group>"; };
+		A20000010000000000000024 /* StateMachineHardeningTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StateMachineHardeningTests.swift; sourceTree = "<group>"; };
+		A20000010000000000000025 /* StateMachineTransitionTableTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StateMachineTransitionTableTests.swift; sourceTree = "<group>"; };
+		A20000010000000000000026 /* TranscriptAssemblerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptAssemblerTests.swift; sourceTree = "<group>"; };
+		A20000010000000000000027 /* VoiceCoordinatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceCoordinatorTests.swift; sourceTree = "<group>"; };
+		A20000010000000000000028 /* AudioLifecyclePolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioLifecyclePolicy.swift; sourceTree = "<group>"; };
+		A20000010000000000000029 /* SpeechQueueTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeechQueueTypes.swift; sourceTree = "<group>"; };
+		A2000001000000000000002A /* SpeechSessionTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeechSessionTypes.swift; sourceTree = "<group>"; };
+		A2000001000000000000002B /* TranscriptPublicationTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranscriptPublicationTypes.swift; sourceTree = "<group>"; };
+		A2000001000000000000002C /* PublicModelContractTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PublicModelContractTests.swift; sourceTree = "<group>"; };
+		A2000001000000000000002D /* RecognitionFacadeContractTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecognitionFacadeContractTests.swift; sourceTree = "<group>"; };
+		A2000001000000000000002E /* RuntimeFacadeGateTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RuntimeFacadeGateTests.swift; sourceTree = "<group>"; };
+		A2000001000000000000002F /* SpeechQueueEngineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpeechQueueEngineTests.swift; sourceTree = "<group>"; };
+		A20000010000000000000030 /* QueueFacadeIntegrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QueueFacadeIntegrationTests.swift; sourceTree = "<group>"; };
+		A20000010000000000000031 /* AppleSpeechTranscriptMapperTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleSpeechTranscriptMapperTests.swift; sourceTree = "<group>"; };
+		A20000010000000000000032 /* QueueResourceBudgetTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QueueResourceBudgetTests.swift; sourceTree = "<group>"; };
+		A20000010000000000000033 /* CanonicalVoiceEventDeliveryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CanonicalVoiceEventDeliveryTests.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		A40000010000000000000001 /* Host Frameworks */ = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+		A40000010000000000000002 /* Test Frameworks */ = {isa = PBXFrameworksBuildPhase; buildActionMask = 2147483647; files = (A10000010000000000000002 /* AppLocalVoice in Frameworks */,); runOnlyForDeploymentPostprocessing = 0; };
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		A50000010000000000000001 = {isa = PBXGroup; children = (A50000010000000000000002 /* TestHost */, A50000010000000000000003 /* Tests */, A50000010000000000000004 /* Products */, A50000010000000000000005 /* Sources */,); sourceTree = "<group>"; };
+		A50000010000000000000002 /* TestHost */ = {isa = PBXGroup; children = (A20000010000000000000001 /* AppLocalVoiceTestHost.swift */, A20000010000000000000002 /* TestHost-Info.plist */,); path = .; sourceTree = "<group>"; };
+		A50000010000000000000003 /* Tests */ = {isa = PBXGroup; children = (A20000010000000000000010 /* AppleSpeechInputSeamTests.swift */, A20000010000000000000011 /* AppleSpeechOutputSeamTests.swift */, A20000010000000000000012 /* AudioBufferConverterTests.swift */, A20000010000000000000013 /* AudioEngineSafetyTests.swift */, A20000010000000000000014 /* AudioSessionControllerTests.swift */, A20000010000000000000015 /* BenchmarkTests.swift */, A20000010000000000000016 /* BoundedTestSupport.swift */, A20000010000000000000017 /* BoundedTestSupportTests.swift */, A20000010000000000000018 /* DeterministicFailureHarnessTests.swift */, A20000010000000000000019 /* DeterministicFuzzTests.swift */, A2000001000000000000001A /* DeterministicLifecycleTests.swift */, A2000001000000000000001B /* DeterministicRaceCancellationStressTests.swift */, A2000001000000000000001C /* DeterministicTestSupport.swift */, A2000001000000000000001D /* DiagnosticsTests.swift */, A2000001000000000000001E /* FacadeContractTests.swift */, A2000001000000000000001F /* FinalizationCancellationTests.swift */, A20000010000000000000020 /* MemorySweepTests.swift */, A20000010000000000000021 /* RecoveryLifecycleAuditTests.swift */, A20000010000000000000022 /* SpeechConfigurationTests.swift */, A20000010000000000000023 /* SpeechTextChunkerTests.swift */, A20000010000000000000024 /* StateMachineHardeningTests.swift */, A20000010000000000000025 /* StateMachineTransitionTableTests.swift */, A20000010000000000000026 /* TranscriptAssemblerTests.swift */, A20000010000000000000027 /* VoiceCoordinatorTests.swift */, A2000001000000000000002C /* PublicModelContractTests.swift */, A2000001000000000000002D /* RecognitionFacadeContractTests.swift */, A2000001000000000000002E /* RuntimeFacadeGateTests.swift */, A2000001000000000000002F /* SpeechQueueEngineTests.swift */, A20000010000000000000030 /* QueueFacadeIntegrationTests.swift */, A20000010000000000000031 /* AppleSpeechTranscriptMapperTests.swift */, A20000010000000000000032 /* QueueResourceBudgetTests.swift */, A20000010000000000000033 /* CanonicalVoiceEventDeliveryTests.swift */,); path = ../Tests/AppLocalVoiceTests; sourceTree = "<group>"; };
+		A50000010000000000000004 /* Products */ = {isa = PBXGroup; children = (A20000010000000000000003 /* AppLocalVoiceTestHost.app */, A20000010000000000000004 /* AppLocalVoiceTests.xctest */,); name = Products; sourceTree = "<group>"; };
+		A50000010000000000000005 /* Sources */ = {isa = PBXGroup; children = (A20000010000000000000028 /* AudioLifecyclePolicy.swift */, A20000010000000000000029 /* SpeechQueueTypes.swift */, A2000001000000000000002A /* SpeechSessionTypes.swift */, A2000001000000000000002B /* TranscriptPublicationTypes.swift */,); path = ../Sources/AppLocalVoice; sourceTree = "<group>"; };
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		A60000010000000000000001 /* AppLocalVoiceTestHost */ = {isa = PBXNativeTarget; buildConfigurationList = A70000010000000000000003 /* Host target configurations */; buildPhases = (A40000010000000000000003 /* Host Sources */, A40000010000000000000001 /* Host Frameworks */, A40000010000000000000005 /* Host Resources */,); buildRules = (); dependencies = (); name = AppLocalVoiceTestHost; productName = AppLocalVoiceTestHost; productReference = A20000010000000000000003 /* AppLocalVoiceTestHost.app */; productType = "com.apple.product-type.application"; };
+		A60000010000000000000002 /* AppLocalVoiceTests */ = {isa = PBXNativeTarget; buildConfigurationList = A70000010000000000000004 /* Test target configurations */; buildPhases = (A40000010000000000000004 /* Test Sources */, A40000010000000000000002 /* Test Frameworks */,); buildRules = (); dependencies = (A60000010000000000000003 /* Test host dependency */,); name = AppLocalVoiceTests; packageProductDependencies = (A30000010000000000000001 /* AppLocalVoice */,); productName = AppLocalVoiceTests; productReference = A20000010000000000000004 /* AppLocalVoiceTests.xctest */; productType = "com.apple.product-type.bundle.unit-test"; };
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		A80000010000000000000001 /* Project object */ = {isa = PBXProject; attributes = {BuildIndependentTargetsInParallel = 1; LastUpgradeCheck = 2660; TargetAttributes = {A60000010000000000000001 = {CreatedOnToolsVersion = 26.0;}; A60000010000000000000002 = {CreatedOnToolsVersion = 26.0; TestTargetID = A60000010000000000000001;};};}; buildConfigurationList = A70000010000000000000001 /* Project configurations */; compatibilityVersion = "Xcode 16.0"; developmentRegion = en; hasScannedForEncodings = 0; knownRegions = (en, Base,); mainGroup = A50000010000000000000001; packageReferences = (AA0000010000000000000001 /* XCLocalSwiftPackageReference "AppLocalVoice" */,); productRefGroup = A50000010000000000000004 /* Products */; projectDirPath = ""; projectRoot = ""; targets = (A60000010000000000000001 /* AppLocalVoiceTestHost */, A60000010000000000000002 /* AppLocalVoiceTests */,); };
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		A40000010000000000000005 /* Host Resources */ = {isa = PBXResourcesBuildPhase; buildActionMask = 2147483647; files = (); runOnlyForDeploymentPostprocessing = 0; };
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		A60000010000000000000003 /* Test host dependency */ = {isa = PBXTargetDependency; target = A60000010000000000000001 /* AppLocalVoiceTestHost */; };
+/* End PBXTargetDependency section */
+
+/* Begin PBXSourcesBuildPhase section */
+		A40000010000000000000003 /* Host Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (A10000010000000000000001 /* AppLocalVoiceTestHost.swift in Sources */,); runOnlyForDeploymentPostprocessing = 0; };
+		A40000010000000000000004 /* Test Sources */ = {isa = PBXSourcesBuildPhase; buildActionMask = 2147483647; files = (A10000010000000000000003 /* AppleSpeechInputSeamTests.swift in Sources */, A10000010000000000000004 /* AppleSpeechOutputSeamTests.swift in Sources */, A10000010000000000000005 /* AudioBufferConverterTests.swift in Sources */, A10000010000000000000006 /* AudioEngineSafetyTests.swift in Sources */, A10000010000000000000007 /* AudioSessionControllerTests.swift in Sources */, A10000010000000000000008 /* BenchmarkTests.swift in Sources */, A10000010000000000000009 /* BoundedTestSupport.swift in Sources */, A1000001000000000000000A /* BoundedTestSupportTests.swift in Sources */, A1000001000000000000000B /* DeterministicFailureHarnessTests.swift in Sources */, A1000001000000000000000C /* DeterministicFuzzTests.swift in Sources */, A1000001000000000000000D /* DeterministicLifecycleTests.swift in Sources */, A1000001000000000000000E /* DeterministicRaceCancellationStressTests.swift in Sources */, A1000001000000000000000F /* DeterministicTestSupport.swift in Sources */, A10000010000000000000010 /* DiagnosticsTests.swift in Sources */, A10000010000000000000011 /* FacadeContractTests.swift in Sources */, A10000010000000000000012 /* FinalizationCancellationTests.swift in Sources */, A10000010000000000000013 /* MemorySweepTests.swift in Sources */, A10000010000000000000014 /* RecoveryLifecycleAuditTests.swift in Sources */, A10000010000000000000015 /* SpeechConfigurationTests.swift in Sources */, A10000010000000000000016 /* SpeechTextChunkerTests.swift in Sources */, A10000010000000000000017 /* StateMachineHardeningTests.swift in Sources */, A10000010000000000000018 /* StateMachineTransitionTableTests.swift in Sources */, A10000010000000000000019 /* TranscriptAssemblerTests.swift in Sources */, A1000001000000000000001A /* VoiceCoordinatorTests.swift in Sources */, A1000001000000000000001F /* PublicModelContractTests.swift in Sources */, A10000010000000000000020 /* RecognitionFacadeContractTests.swift in Sources */, A10000010000000000000021 /* RuntimeFacadeGateTests.swift in Sources */, A10000010000000000000022 /* SpeechQueueEngineTests.swift in Sources */, A10000010000000000000023 /* QueueFacadeIntegrationTests.swift in Sources */, A10000010000000000000024 /* AppleSpeechTranscriptMapperTests.swift in Sources */, A10000010000000000000025 /* QueueResourceBudgetTests.swift in Sources */, A10000010000000000000026 /* CanonicalVoiceEventDeliveryTests.swift in Sources */,); runOnlyForDeploymentPostprocessing = 0; };
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		AA0000010000000000000001 /* XCLocalSwiftPackageReference "AppLocalVoice" */ = {isa = XCLocalSwiftPackageReference; relativePath = ..; };
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		A30000010000000000000001 /* AppLocalVoice */ = {isa = XCSwiftPackageProductDependency; package = AA0000010000000000000001 /* XCLocalSwiftPackageReference "AppLocalVoice" */; productName = AppLocalVoice; };
+/* End XCSwiftPackageProductDependency section */
+
+/* Begin XCBuildConfiguration section */
+		A90000010000000000000001 /* Project Debug */ = {isa = XCBuildConfiguration; buildSettings = {ALWAYS_SEARCH_USER_PATHS = NO; ARCHS = arm64; CLANG_ENABLE_MODULES = YES; CLANG_ENABLE_OBJC_ARC = YES; IPHONEOS_DEPLOYMENT_TARGET = 26.0; ONLY_ACTIVE_ARCH = YES; SDKROOT = iphoneos; SWIFT_VERSION = 6.0;}; name = Debug;};
+		A90000010000000000000002 /* Project Release */ = {isa = XCBuildConfiguration; buildSettings = {ALWAYS_SEARCH_USER_PATHS = NO; ARCHS = arm64; CLANG_ENABLE_MODULES = YES; CLANG_ENABLE_OBJC_ARC = YES; IPHONEOS_DEPLOYMENT_TARGET = 26.0; ONLY_ACTIVE_ARCH = YES; SDKROOT = iphoneos; SWIFT_VERSION = 6.0;}; name = Release;};
+		A90000010000000000000003 /* Host Debug */ = {isa = XCBuildConfiguration; buildSettings = {CODE_SIGNING_ALLOWED = NO; GENERATE_INFOPLIST_FILE = NO; INFOPLIST_FILE = TestHost-Info.plist; IPHONEOS_DEPLOYMENT_TARGET = 26.0; PRODUCT_BUNDLE_IDENTIFIER = com.applocalvoice.testhost; PRODUCT_NAME = AppLocalVoiceTestHost; SDKROOT = iphoneos; SWIFT_VERSION = 6.0; TARGETED_DEVICE_FAMILY = "1,2";}; name = Debug;};
+		A90000010000000000000004 /* Host Release */ = {isa = XCBuildConfiguration; buildSettings = {CODE_SIGNING_ALLOWED = NO; GENERATE_INFOPLIST_FILE = NO; INFOPLIST_FILE = TestHost-Info.plist; IPHONEOS_DEPLOYMENT_TARGET = 26.0; PRODUCT_BUNDLE_IDENTIFIER = com.applocalvoice.testhost; PRODUCT_NAME = AppLocalVoiceTestHost; SDKROOT = iphoneos; SWIFT_VERSION = 6.0; TARGETED_DEVICE_FAMILY = "1,2";}; name = Release;};
+		A90000010000000000000005 /* Test Debug */ = {isa = XCBuildConfiguration; buildSettings = {BUNDLE_LOADER = "$(TEST_HOST)"; CODE_SIGNING_ALLOWED = NO; GENERATE_INFOPLIST_FILE = YES; IPHONEOS_DEPLOYMENT_TARGET = 26.0; LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@loader_path/Frameworks", "@loader_path/../Frameworks",); PRODUCT_BUNDLE_IDENTIFIER = com.applocalvoice.tests; PRODUCT_NAME = AppLocalVoiceTests; SDKROOT = iphoneos; SWIFT_OPTIMIZATION_LEVEL = "-Onone"; SWIFT_VERSION = 6.0; TARGETED_DEVICE_FAMILY = "1,2"; TEST_HOST = "$(BUILT_PRODUCTS_DIR)/AppLocalVoiceTestHost.app/AppLocalVoiceTestHost";}; name = Debug;};
+		A90000010000000000000006 /* Test Release */ = {isa = XCBuildConfiguration; buildSettings = {BUNDLE_LOADER = "$(TEST_HOST)"; CODE_SIGNING_ALLOWED = NO; GENERATE_INFOPLIST_FILE = YES; IPHONEOS_DEPLOYMENT_TARGET = 26.0; LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@loader_path/Frameworks", "@loader_path/../Frameworks",); PRODUCT_BUNDLE_IDENTIFIER = com.applocalvoice.tests; PRODUCT_NAME = AppLocalVoiceTests; SDKROOT = iphoneos; SWIFT_OPTIMIZATION_LEVEL = "-O"; SWIFT_VERSION = 6.0; TARGETED_DEVICE_FAMILY = "1,2"; TEST_HOST = "$(BUILT_PRODUCTS_DIR)/AppLocalVoiceTestHost.app/AppLocalVoiceTestHost";}; name = Release;};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		A70000010000000000000001 /* Project configurations */ = {isa = XCConfigurationList; buildConfigurations = (A90000010000000000000001 /* Project Debug */, A90000010000000000000002 /* Project Release */,); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release;};
+		A70000010000000000000003 /* Host target configurations */ = {isa = XCConfigurationList; buildConfigurations = (A90000010000000000000003 /* Host Debug */, A90000010000000000000004 /* Host Release */,); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release;};
+		A70000010000000000000004 /* Test target configurations */ = {isa = XCConfigurationList; buildConfigurations = (A90000010000000000000005 /* Test Debug */, A90000010000000000000006 /* Test Release */,); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release;};
+/* End XCConfigurationList section */
+	};
+	rootObject = A80000010000000000000001 /* Project object */;
+}

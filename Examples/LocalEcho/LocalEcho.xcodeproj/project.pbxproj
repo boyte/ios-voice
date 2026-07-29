@@ -1,0 +1,238 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		A10000010000000000000001 /* LocalEchoApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000001 /* LocalEchoApp.swift */; };
+		A10000010000000000000002 /* LocalEchoModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000002 /* LocalEchoModel.swift */; };
+		A10000010000000000000003 /* LocalEchoView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000003 /* LocalEchoView.swift */; };
+		A10000010000000000000004 /* AppLocalVoice in Frameworks */ = {isa = PBXBuildFile; productRef = A30000010000000000000001 /* AppLocalVoice */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		A20000010000000000000001 /* LocalEchoApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalEchoApp.swift; sourceTree = "<group>"; };
+		A20000010000000000000002 /* LocalEchoModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalEchoModel.swift; sourceTree = "<group>"; };
+		A20000010000000000000003 /* LocalEchoView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalEchoView.swift; sourceTree = "<group>"; };
+		A20000010000000000000004 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		A20000010000000000000005 /* LocalEcho.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = LocalEcho.app; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		A40000010000000000000001 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A10000010000000000000004 /* AppLocalVoice in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		A50000010000000000000001 = {
+			isa = PBXGroup;
+			children = (
+				A50000010000000000000002 /* LocalEcho */,
+				A50000010000000000000003 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		A50000010000000000000002 /* LocalEcho */ = {
+			isa = PBXGroup;
+			children = (
+				A20000010000000000000001 /* LocalEchoApp.swift */,
+				A20000010000000000000002 /* LocalEchoModel.swift */,
+				A20000010000000000000003 /* LocalEchoView.swift */,
+				A20000010000000000000004 /* Info.plist */,
+			);
+			path = .;
+			sourceTree = "<group>";
+		};
+		A50000010000000000000003 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				A20000010000000000000005 /* LocalEcho.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		A60000010000000000000001 /* LocalEcho */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A70000010000000000000002 /* Build configuration list for PBXNativeTarget "LocalEcho" */;
+			buildPhases = (
+				A40000010000000000000002 /* Sources */,
+				A40000010000000000000001 /* Frameworks */,
+				A40000010000000000000003 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = LocalEcho;
+			packageProductDependencies = (
+				A30000010000000000000001 /* AppLocalVoice */,
+			);
+			productName = LocalEcho;
+			productReference = A20000010000000000000005 /* LocalEcho.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		A80000010000000000000001 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastUpgradeCheck = 2660;
+				TargetAttributes = {
+					A60000010000000000000001 = {
+						CreatedOnToolsVersion = 26.0;
+					};
+				};
+			};
+			buildConfigurationList = A70000010000000000000001 /* Build configuration list for PBXProject "LocalEcho" */;
+			compatibilityVersion = "Xcode 16.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = A50000010000000000000001;
+			packageReferences = (
+				AA0000010000000000000001 /* XCLocalSwiftPackageReference "AppLocalVoice" */,
+			);
+			productRefGroup = A50000010000000000000003 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				A60000010000000000000001 /* LocalEcho */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		A40000010000000000000003 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		A40000010000000000000002 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A10000010000000000000001 /* LocalEchoApp.swift in Sources */,
+				A10000010000000000000002 /* LocalEchoModel.swift in Sources */,
+				A10000010000000000000003 /* LocalEchoView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		A90000010000000000000001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = "";
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				INFOPLIST_FILE = Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.example.LocalEcho;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		A90000010000000000000002 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = "";
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				INFOPLIST_FILE = Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.example.LocalEcho;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		A70000010000000000000001 /* Build configuration list for PBXProject "LocalEcho" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A90000010000000000000001 /* Debug */,
+				A90000010000000000000002 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A70000010000000000000002 /* Build configuration list for PBXNativeTarget "LocalEcho" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A90000010000000000000001 /* Debug */,
+				A90000010000000000000002 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		AA0000010000000000000001 /* XCLocalSwiftPackageReference "AppLocalVoice" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ../..;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		A30000010000000000000001 /* AppLocalVoice */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = AA0000010000000000000001 /* XCLocalSwiftPackageReference "AppLocalVoice" */;
+			productName = AppLocalVoice;
+		};
+/* End XCSwiftPackageProductDependency section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+/* End XCRemoteSwiftPackageReference section */
+	};
+	rootObject = A80000010000000000000001 /* Project object */;
+}
