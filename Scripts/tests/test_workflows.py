@@ -73,16 +73,27 @@ class WorkflowContractTests(unittest.TestCase):
         self.assertIn("release-test-details-1.json", text)
         self.assertIn("release-test-details-2.json", text)
 
-    def test_previous_tag_api_comparison_is_release_only_and_fail_closed(self) -> None:
+    def test_previous_tag_api_comparison_is_release_only_with_explicit_bootstrap(self) -> None:
         release = self.read("release-validation.yml")
         normal = self.read("test.yml")
 
-        self.assertIn("A previous semantic-version tag is required", release)
+        self.assertIn('echo "bootstrap=true"', release)
+        self.assertIn('echo "bootstrap=false"', release)
+        self.assertIn("No previous reachable semantic-version tag", release)
         self.assertIn("git worktree add --detach", release)
         self.assertIn("Scripts/compare-public-api.py", release)
         self.assertIn('if [[ -z "$PREVIOUS" ]]; then', release)
+        self.assertIn("if: steps.tags.outputs.bootstrap != 'true'", release)
+        self.assertIn("Record bootstrap API compatibility status", release)
         self.assertNotIn("Scripts/compare-public-api.py", normal)
-        self.assertNotIn("A previous semantic-version tag is required", normal)
+
+    def test_ci_keeps_independent_jobs_unblocked_and_uses_nonconflicting_warning_gates(self) -> None:
+        text = self.read("test.yml")
+
+        self.assertNotIn("SWIFT_TREAT_WARNINGS_AS_ERRORS=YES", text)
+        self.assertNotIn("needs: package-and-docs", text)
+        self.assertIn("alarm 1200", text)
+        self.assertIn("timeout-minutes: 30", text)
 
     def test_external_actions_are_immutable_commit_pins(self) -> None:
         for path in (ROOT / ".github" / "workflows").glob("*.yml"):

@@ -76,8 +76,8 @@ Next evidence commands are maintained in the [open-task acceptance matrix](Relea
 - [x] Update `CHANGELOG.md` with known limitations and unknown device cells.
 - [x] Confirm the license, security policy, code of conduct, and contribution
       workflow are current.
-- [ ] Replace the `@maintainers` CODEOWNERS placeholder with real owners in the
-      published Git host; the current scaffolding audit reports this as open.
+- [x] Confirm the published Git host has real CODEOWNERS ownership and private
+      vulnerability reporting enabled.
 - [ ] Tag the release from a clean, reviewed commit and publish checksums or
       release artifacts according to the repository's distribution policy
-      (requires a real Git remote; impossible in the current worktree).
+      after the hosted release-validation workflow passes.

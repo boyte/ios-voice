@@ -185,8 +185,13 @@ jobs:
           PY
           )"
           if [[ -z "$PREVIOUS" ]]; then
-            echo "A previous semantic-version tag is required for API compatibility validation." >&2
-            exit 1
+            # The first semantic tag has no prior public surface to compare.
+            # It remains fail-closed for every candidate-local gate, while
+            # later tags must compare against the highest reachable prior tag.
+            echo "No previous reachable semantic-version tag; using explicit bootstrap validation."
+            echo "bootstrap=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "bootstrap=false" >> "$GITHUB_OUTPUT"
           fi
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           echo "previous=$PREVIOUS" >> "$GITHUB_OUTPUT"
@@ -235,6 +240,7 @@ jobs:
             -Xcc -I -Xcc "$GITHUB_WORKSPACE/Sources/AppLocalVoiceAudioEngineSafe/include" \
             "$RUNNER_TEMP/CleanClient.swift"
       - name: Emit previous public symbol graph
+        if: steps.tags.outputs.bootstrap != 'true'
         env:
           PREVIOUS: ${{ steps.tags.outputs.previous }}
         shell: bash
@@ -245,11 +251,33 @@ jobs:
             "$RUNNER_TEMP/previous-symbols" \
             "$RUNNER_TEMP/previous-derived"
       - name: Compare public API
+        if: steps.tags.outputs.bootstrap != 'true'
         run: |
           python3 Scripts/compare-public-api.py \
             --previous "$RUNNER_TEMP/previous-symbols/AppLocalVoice.symbols.json" \
             --candidate "$RUNNER_TEMP/candidate-symbols/AppLocalVoice.symbols.json" \
             --output "$RUNNER_TEMP/api-compatibility.json"
+      - name: Record bootstrap API compatibility status
+        if: steps.tags.outputs.bootstrap == 'true'
+        run: |
+          mkdir -p "$RUNNER_TEMP/previous-symbols"
+          cat > "$RUNNER_TEMP/previous-symbols/BOOTSTRAP.md" <<'EOF'
+          No reachable prior semantic-version tag exists for this release.
+          Candidate-local public API and documentation validation completed;
+          a cross-release compatibility comparison is not applicable.
+          EOF
+          python3 - <<'PY'
+          import json
+          import os
+          import pathlib
+
+          output = pathlib.Path(os.environ["RUNNER_TEMP"]) / "api-compatibility.json"
+          output.write_text(json.dumps({
+              "schemaVersion": 1,
+              "status": "not-applicable",
+              "reason": "bootstrap release has no reachable prior semantic-version tag",
+          }, indent=2) + "\n", encoding="utf-8")
+          PY
       - name: Create deterministic source archive
         env:
           TAG: ${{ steps.tags.outputs.tag }}

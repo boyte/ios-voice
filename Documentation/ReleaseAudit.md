@@ -34,12 +34,11 @@ evidence.
 - Physical iPhone/iPad routes, interruptions, backgrounding, Apple model and
   voice availability, endurance, energy/thermal behavior, and crash/relaunch
   recovery remain unproven without physical reports.
-- API compatibility against a previous release is impossible until a prior
-  semantic tag exists.
 - Branch protection, required checks, and any tag-signing policy remain GitHub
   repository settings that must be reviewed by the release owner.
-- The tag workflow needs an explicit first-tag bootstrap policy before the
-  corrective release can be considered fully release-validated.
+- The `v0.1.1` tag must retain a successful comparison against `v0.1.0` in its
+  hosted release evidence. The bootstrap path exists solely for a repository
+  with no reachable prior semantic tag.
 
 ## Link and gate review
 
@@ -55,7 +54,7 @@ simulator/provider seam check never substitutes for physical-device evidence.
 | Test and API evidence reconciliation | Generated inventory, native results, both API baselines, and reviewed validator results agree | Corrective 0.1.1 work; do not publish unverified counts |
 | Physical-device matrix | Complete, privacy-reviewed reports for the required devices, routes, models, voices, interruptions, endurance, and crash/relaunch | Open external evidence |
 | Hosted project | Canonical remote, real CODEOWNERS, protected branch, required checks, private security/conduct routes, and clean reviewed commit | Remote and ownership configured; branch protection/review settings remain release-owner work |
-| First-tag bootstrap | Reviewed workflow policy that validates the first semantic tag without inventing a previous release | Open distribution work |
+| First-tag bootstrap | Reviewed workflow policy that validates the first semantic tag without inventing a previous release | Implemented; `v0.1.1` uses previous-tag comparison instead |
 | Publication | Tagged release, matching archive/checksum/evidence manifest, hosted release notes, and clean external package resolution | 0.1.0 published; 0.1.1 awaits corrective CI and evidence |
 
 Follow the exact commands and handoff order in

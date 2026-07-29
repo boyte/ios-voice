@@ -9,6 +9,11 @@ All notable changes to AppLocalVoice are documented here.
 - Track CI, documentation, governance, and privacy corrections for the next
   patch release. Physical-device qualification remains separate release
   evidence and is not implied by this work.
+- Fixed the hosted XCTest warning-policy conflict, allowed bounded cold-run
+  benchmark setup time, and made simulator, benchmark, and memory evidence
+  jobs independent of documentation linting.
+- Added a tested first-tag release-validation bootstrap path; later releases
+  continue to require a reachable prior semantic tag and public-API comparison.
 
 ## 0.1.0 — 2026-07-29
 
@@ -62,6 +67,7 @@ All notable changes to AppLocalVoice are documented here.
 - Physical-device validation remains required for microphone routes, Bluetooth
   and wired audio, interruptions, model and voice availability, endurance,
   thermal/energy behavior, and crash/relaunch behavior.
-- The initial `v0.1.0` release predates completion of the hosted first-tag
-  workflow bootstrap. Subsequent releases must retain the explicit bootstrap
-  or previous-tag compatibility validation described in [RELEASING.md](RELEASING.md).
+- The initial `v0.1.0` release predates the corrective hosted-CI run. The
+  `v0.1.1` candidate must pass the full hosted matrix and compare its public
+  API with `v0.1.0` before publication, as described in
+  [RELEASING.md](RELEASING.md).

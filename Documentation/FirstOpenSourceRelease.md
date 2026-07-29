@@ -101,10 +101,11 @@ security contacts.
 
 ## 4. Bootstrap the first tag
 
-The first public tag exposed that the release workflow needs an explicit
-bootstrap policy when no previous reachable semantic-version tag exists.
-That policy must validate the candidate without inventing a previous public API
-and must preserve fail-closed comparison for every later tag.
+The release workflow has an explicit bootstrap policy for a repository with no
+previous reachable semantic-version tag. It validates the candidate without
+inventing a prior public API and preserves fail-closed comparison for every
+later tag. Because `v0.1.0` exists, the `v0.1.1` release must compare against
+that tag rather than using the bootstrap path.
 
 After that work is closed, select the next version only if the release owner
 has reviewed the current public API, device evidence, known limitations, and

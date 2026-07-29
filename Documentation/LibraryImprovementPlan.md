@@ -86,9 +86,14 @@ Those facts do not make the library integration-ready. The fresh code audit conf
   
 19. Local Echo still demonstrates compatibility APIs and closes its service on view disappearance. It does not exercise the app-scoped service, session API, queue, resubscription, or playback progress.
   
-20. CI does not build/validate Local Echo, and the tag workflow requires a previous semantic tag, making the first release impossible to validate.
+20. CI does not build/validate Local Echo. The release workflow now has an
+    explicit first-tag bootstrap path and requires a reachable previous
+    semantic tag for every later API comparison.
   
-21. The checkout has no Git repository or canonical URL, CODEOWNERS contains a placeholder, and the private security-reporting route is not actionable.
+21. The public Git repository, canonical URL, real CODEOWNERS entry, and
+    private vulnerability-reporting route are configured. Branch protection,
+    required checks, and tag-signing policy remain release-owner settings to
+    verify on the Git host.
   
 22. AirPods, routes, interruptions, competing audio, local model installation, energy, thermal behavior, endurance, and process relaunch remain unproven on physical hardware.
   
@@ -1278,6 +1283,10 @@ Every ticket must satisfy all applicable items:
 - Acceptance:
   
   - A synthetic first-tag test passes; a second-tag test proves compatibility comparison is mandatory.
+
+- Implementation status: completed for the corrective release workflow. The
+  workflow records an explicit bootstrap result only when no reachable prior
+  semantic tag exists; otherwise it emits and compares both symbol graphs.
     
 
 ### E12 — Physical-device, candidate, and publication validation

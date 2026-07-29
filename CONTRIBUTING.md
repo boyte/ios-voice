@@ -40,6 +40,6 @@ scaffolding audit:
 python3 Scripts/audit-release-scaffolding.py
 ```
 
-It does not require a Git remote. Treat every `OPEN` line as a handoff to the
-release owner; in particular, replace the `.github/CODEOWNERS` placeholder and
-complete Git-host protection/reporting only in the real hosted repository.
+It can run without network access. Treat every `OPEN` line as a handoff to the
+release owner; Git-host protection, required checks, and tag-signing policy
+must be verified in the hosted repository.

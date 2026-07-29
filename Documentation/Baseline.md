@@ -33,9 +33,10 @@ have passed.
 
 ## Known evidence limits
 
-This worktree has no `.git` directory or remote, so a previous tagged symbol
-graph, reviewed commit, protected branch, release tag, and published artifact
-cannot be verified here. No connected iPhone or iPad is available in this
-environment, so microphone routes, interruptions, model installation,
-enhanced voices, endurance, energy, and process-level recovery remain
-unproven. These are release blockers, not documentation defects.
+This repository has a public remote and `v0.1.0`; the hosted `v0.1.1` release
+workflow must emit the compared symbol graphs and retained release evidence.
+Protected-branch policy, required checks, and tag-signing policy remain GitHub
+settings for the release owner to verify. Physical iPhone/iPad routes,
+interruptions, model installation, enhanced voices, endurance, energy, and
+process-level recovery remain unproven until privacy-reviewed device reports
+exist. These are release blockers, not documentation defects.
