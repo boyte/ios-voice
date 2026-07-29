@@ -1749,7 +1749,7 @@ actor AppleSpeechInput: SpeechInput {
 
     private func handleAnalysisFailure(_ error: Error, generation currentGeneration: UInt64) async {
         guard isCurrent(currentGeneration) else { return }
-        terminalError = (error as? VoiceError) ?? .underlying(error.localizedDescription)
+        terminalError = (error as? VoiceError) ?? .underlying("Speech analysis failed.")
         analysisError = error
         // This method is called by analysisTask itself. Never await that task
         // from inside its own failure path.

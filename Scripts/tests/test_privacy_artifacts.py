@@ -84,6 +84,11 @@ class PrivacyArtifactTests(unittest.TestCase):
         )
         self.assertEqual(self.module.scan([path]), [])
 
+    def test_production_sources_do_not_forward_provider_localized_descriptions(self) -> None:
+        source_root = ROOT / "Sources" / "AppLocalVoice"
+        for path in source_root.glob("*.swift"):
+            self.assertNotIn("localizedDescription", path.read_text(encoding="utf-8"), path.name)
+
     def test_speech_and_tts_payload_labels_are_rejected(self) -> None:
         path = self.write(
             "payloads.txt",

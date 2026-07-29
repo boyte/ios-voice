@@ -1848,7 +1848,7 @@ actor VoiceCoordinator {
 
     private func normalize(_ error: Error) -> VoiceError {
         if error is CancellationError { return .cancelled }
-        return error as? VoiceError ?? .underlying(error.localizedDescription)
+        return error as? VoiceError ?? .underlying("Voice operation failed.")
     }
 
     private func normalizedCancellation(_ error: Error) -> Error {

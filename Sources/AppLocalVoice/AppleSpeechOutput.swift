@@ -213,7 +213,7 @@ final class AppleSpeechOutput: NSObject, SpeechOutput {
                 // singleton. The owner-scoped controller makes this retry
                 // safe even when another voice service is active.
                 _ = await releaseAudioSessionIfIdle()
-                throw VoiceError.audioSessionUnavailable(error.localizedDescription)
+                throw VoiceError.audioSessionUnavailable("Audio session activation failed.")
             }
         }
 

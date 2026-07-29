@@ -85,3 +85,10 @@ speech payload or credential content is replaced as a whole with an explicit
 partially reconstructs speech text. Invalid UTF-8, binary/control bytes,
 symlinks, and logs over the 10 MiB default limit are rejected before output is
 written.
+# Provider error text
+
+Public `VoiceError` values use package-authored, stable messages when an Apple
+provider returns an unclassified failure. The package never forwards an
+Apple `localizedDescription` into its public errors or diagnostics. Hosts may
+present the typed error category and recommended action, but should not treat
+the generic message as provider diagnostic detail.
