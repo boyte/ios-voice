@@ -324,7 +324,8 @@ class DeviceReportTests(unittest.TestCase):
         for script in (benchmark, memory):
             self.assertIn('APPLOCALVOICE_SIMULATOR_NAME:-iPhone 17 Pro', script)
             self.assertIn('simctl list devices available --json', script)
-            self.assertIn('simctl erase "$DEVICE_ID"', script)
+            self.assertIn('APPLOCALVOICE_ERASE_SIMULATOR:-0', script)
+            self.assertIn('1) xcrun simctl erase "$DEVICE_ID"', script)
             self.assertIn('simctl bootstatus "$DEVICE_ID" -b', script)
             self.assertIn('-destination "platform=iOS Simulator,id=$DEVICE_ID"', script)
             self.assertIn('RESULT_BUNDLE', script)

@@ -23,6 +23,10 @@ rm -rf "$DERIVED_DATA"
 
 SIMULATOR_NAME="${APPLOCALVOICE_SIMULATOR_NAME:-iPhone 17 Pro}"
 SIMULATOR_RUNTIME="${APPLOCALVOICE_SIMULATOR_RUNTIME:-iOS-26-0}"
+# Hosted jobs have an isolated runner and do not need an erase before these
+# deterministic proxy tests. Erase is opt-in for a deliberately clean local
+# campaign because CoreSimulator erase can hang independently of the test.
+ERASE_SIMULATOR="${APPLOCALVOICE_ERASE_SIMULATOR:-0}"
 # Keep the benchmark identity stable. Override APPLOCALVOICE_SIMULATOR_RUNTIME
 # only when deliberately changing the supported runtime; never silently
 # substitute another phone or runtime.
@@ -64,7 +68,11 @@ cleanup() {
 trap cleanup EXIT
 
 xcrun simctl shutdown "$DEVICE_ID" >/dev/null 2>&1 || true
-xcrun simctl erase "$DEVICE_ID"
+case "$ERASE_SIMULATOR" in
+  0) ;;
+  1) xcrun simctl erase "$DEVICE_ID" ;;
+  *) echo "APPLOCALVOICE_ERASE_SIMULATOR must be 0 or 1" >&2; exit 2 ;;
+esac
 xcrun simctl boot "$DEVICE_ID" >/dev/null 2>&1 || true
 xcrun simctl bootstatus "$DEVICE_ID" -b
 

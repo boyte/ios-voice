@@ -49,10 +49,12 @@ absolute paths or device claims, and is suitable for moving between machines
 or attaching to CI. It must not be copied into a release report as device
 performance evidence.
 
-The runner selects, erases, and boots an available iPhone Simulator, then shuts
-it down on exit. Build products are kept in an output-adjacent derived-data
-directory rather than in the default per-user location. It never requires a
-connected iPhone or iPad; “hardware-free” means
+The runner selects and boots an available iPhone Simulator, then shuts it down
+on exit. Hosted jobs use their isolated runner state; set
+`APPLOCALVOICE_ERASE_SIMULATOR=1` for a deliberately clean local campaign.
+Build products are kept in an output-adjacent derived-data directory rather
+than in the default per-user location. It never requires a connected iPhone or
+iPad; “hardware-free” means
 that all speech and audio providers are deterministic fakes or pure functions.
 
 The XCTest result also contains native `XCTClockMetric` and `XCTMemoryMetric`
