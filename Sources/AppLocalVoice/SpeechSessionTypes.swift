@@ -273,4 +273,4 @@ public enum RecognitionPreparationPhase: Sendable, Equatable {
 /// text, audio, or host content. Delivery ends before `prepareRecognition`
 /// returns or throws.
 public typealias RecognitionPreparationProgressHandler =
-    @MainActor @Sendable (RecognitionPreparationPhase) -> Void
+    @MainActor (RecognitionPreparationPhase) -> Void

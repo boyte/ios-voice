@@ -1113,8 +1113,8 @@ the source API and regenerate the baseline and markers together.
 - `s:13AppLocalVoice0C19DiagnosticOperationO8speakingyA2CmF`
 <!-- api-symbol: s:13AppLocalVoice0C19DiagnosticOperationO9listeningyA2CmF -->
 - `s:13AppLocalVoice0C19DiagnosticOperationO9listeningyA2CmF`
-<!-- api-symbol: s:13AppLocalVoiceAAC18queueConfiguration15lifecyclePolicy11diagnosticsAbA011SpeechQueueE0V_AA014AudioLifecycleG0VyAA0C10DiagnosticVYbScMYccSgtcfc -->
-- `s:13AppLocalVoiceAAC18queueConfiguration15lifecyclePolicy11diagnosticsAbA011SpeechQueueE0V_AA014AudioLifecycleG0VyAA0C10DiagnosticVYbScMYccSgtcfc`
+<!-- api-symbol: s:13AppLocalVoiceAAC18queueConfiguration15lifecyclePolicy11diagnosticsAbA011SpeechQueueE0V_AA014AudioLifecycleG0VyAA0C10DiagnosticVScMYccSgtcfc -->
+- `s:13AppLocalVoiceAAC18queueConfiguration15lifecyclePolicy11diagnosticsAbA011SpeechQueueE0V_AA014AudioLifecycleG0VyAA0C10DiagnosticVScMYccSgtcfc`
 
 <!-- api-symbol: s:13AppLocalVoice0c11EventStreamD0O8snapshotyAcA0C15RuntimeSnapshotVcACmF -->
 - `VoiceEventStreamEvent.snapshot(_:)` (swift.enum.case)
@@ -1232,5 +1232,5 @@ the source API and regenerate the baseline and markers together.
 - `RecognitionSessionConfiguration.maximumRecognitionDuration` (swift.property)
 <!-- api-symbol: s:13AppLocalVoice31RecognitionSessionConfigurationV11recognition17publicationPolicy09lifecycleI007maximumD8DurationAcA0dF0V_AA021TranscriptPublicationI0OAA014AudioLifecycleI0Vs0L0VSgtcfc -->
 - `RecognitionSessionConfiguration.init(recognition:publicationPolicy:lifecyclePolicy:maximumRecognitionDuration:)` (swift.init)
-<!-- api-symbol: s:13AppLocalVoiceAAC18prepareRecognition3for6policy8progressAA0E17PreparationResultV10Foundation6LocaleV_AA17SpeechModelPolicyOyAA0eI5PhaseOYbScMYccSgtYaKF -->
+<!-- api-symbol: s:13AppLocalVoiceAAC18prepareRecognition3for6policy8progressAA0E17PreparationResultV10Foundation6LocaleV_AA17SpeechModelPolicyOyAA0eI5PhaseOScMYccSgtYaKF -->
 - `AppLocalVoice.prepareRecognition(for:policy:progress:)` (swift.method)

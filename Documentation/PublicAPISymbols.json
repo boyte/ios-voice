@@ -2867,14 +2867,6 @@
           },
           {
             "kind": "text",
-            "spelling": " "
-          },
-          {
-            "kind": "attribute",
-            "spelling": "@Sendable"
-          },
-          {
-            "kind": "text",
             "spelling": " ("
           },
           {
@@ -17726,14 +17718,6 @@
           },
           {
             "kind": "text",
-            "spelling": " "
-          },
-          {
-            "kind": "attribute",
-            "spelling": "@Sendable"
-          },
-          {
-            "kind": "text",
             "spelling": " ("
           },
           {
@@ -19521,7 +19505,7 @@
       }
     },
     {
-      "precise": "s:13AppLocalVoiceAAC18prepareRecognition3for6policy8progressAA0E17PreparationResultV10Foundation6LocaleV_AA17SpeechModelPolicyOyAA0eI5PhaseOYbScMYccSgtYaKF",
+      "precise": "s:13AppLocalVoiceAAC18prepareRecognition3for6policy8progressAA0E17PreparationResultV10Foundation6LocaleV_AA17SpeechModelPolicyOyAA0eI5PhaseOScMYccSgtYaKF",
       "title": "prepareRecognition(for:policy:progress:)",
       "kind": "swift.method",
       "fingerprint": {
@@ -19645,7 +19629,7 @@
       }
     },
     {
-      "precise": "s:13AppLocalVoiceAAC18queueConfiguration15lifecyclePolicy11diagnosticsAbA011SpeechQueueE0V_AA014AudioLifecycleG0VyAA0C10DiagnosticVYbScMYccSgtcfc",
+      "precise": "s:13AppLocalVoiceAAC18queueConfiguration15lifecyclePolicy11diagnosticsAbA011SpeechQueueE0V_AA014AudioLifecycleG0VyAA0C10DiagnosticVScMYccSgtcfc",
       "title": "init(queueConfiguration:lifecyclePolicy:diagnostics:)",
       "kind": "swift.init",
       "fingerprint": {

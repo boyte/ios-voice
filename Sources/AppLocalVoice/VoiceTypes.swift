@@ -614,7 +614,7 @@ public struct VoiceDiagnostic: Sendable, Equatable {
 /// The callback executes on the ``AppLocalVoice`` main actor. The host owns
 /// retention, aggregation, and export of these records. AppLocalVoice never
 /// logs or persists them.
-public typealias VoiceDiagnosticsSink = @MainActor @Sendable (VoiceDiagnostic) -> Void
+public typealias VoiceDiagnosticsSink = @MainActor (VoiceDiagnostic) -> Void
 
 /// Bounded stream of privacy-safe diagnostic records.
 ///
