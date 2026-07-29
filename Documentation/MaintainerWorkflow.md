@@ -73,11 +73,12 @@ the 519-symbol public API marker validation, and DocC conversion with
 warnings-as-errors pass. `validate-public-docs.py` is a release gate: source
 documentation coverage must also pass before a candidate can be released.
 
-The current ghost-API audit is recorded in
-[`PublicAPIReview.md`](PublicAPIReview.md). Do not change the public baseline
-merely to make the inventory smaller: every canonical addition, compatibility
-adapter, alias removal, and currently unreachable value must retain its
-consumer path and implementation owner in that review.
+The current public inventory is recorded in
+[`PublicAPI.md`](PublicAPI.md) and the generated
+[`PublicAPISymbols.json`](PublicAPISymbols.json) baseline. Do not change the
+baseline merely to make the inventory smaller: every canonical addition,
+compatibility adapter, alias removal, and public value must retain a consumer
+path and implementation owner in the reviewed change.
 
 Before release, attach the symbol-graph diff, DocC archive result, benchmark
 summary, and device matrix. Unknown device cells remain visible in the release

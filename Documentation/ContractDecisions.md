@@ -6,9 +6,9 @@ decisions before first release; this documentation pass makes no source-code
 claim and makes no source-code change.
 
 This document records E0-T01 through E0-T06 decisions for the
-standalone AppLocalVoice rebuild. The end-to-end host flow and adoption modes
-are in [AdoptionMatrix.md](AdoptionMatrix.md). The current implemented contract
-and release boundary are described in [Compatibility.md](Compatibility.md),
+standalone AppLocalVoice rebuild. The end-to-end host flow is documented in
+[Quickstart.md](Quickstart.md). The current implemented contract and release
+boundary are described in [Compatibility.md](Compatibility.md),
 [StateMachine.md](StateMachine.md), and [Recovery.md](Recovery.md) until the
 corresponding implementation, tests, API baseline, and public documentation
 land together.
