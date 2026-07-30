@@ -714,7 +714,12 @@ final class AppleSpeechOutputSeamTests: XCTestCase {
     }
 
     private func waitUntilReleased(_ output: AppleSpeechOutput) async -> Bool {
-        for _ in 0..<128 {
+        // Delegate callbacks cross from AVFoundation into a main-actor task.
+        // Counting yields is scheduler-sensitive on a loaded hosted runner,
+        // so use a short, explicit deadline while still failing closed if the
+        // terminal callback never releases the retained watchdog ownership.
+        let deadline = ContinuousClock.now + .seconds(1)
+        while ContinuousClock.now < deadline {
             if await output.resourcesAreReleased() { return true }
             await Task.yield()
         }

@@ -57,12 +57,6 @@ print(candidates[0][1])
 rm -f "$SIMULATOR_JSON"
 test -n "$DEVICE_ID"
 
-cleanup() {
-  xcrun simctl shutdown "$DEVICE_ID" >/dev/null 2>&1 || true
-  rm -f "$SIMULATOR_JSON"
-}
-trap cleanup EXIT
-
 case "$ERASE_SIMULATOR" in
   0) ;;
   1)
@@ -71,8 +65,10 @@ case "$ERASE_SIMULATOR" in
     ;;
   *) echo "APPLOCALVOICE_ERASE_SIMULATOR must be 0 or 1" >&2; exit 2 ;;
 esac
-xcrun simctl boot "$DEVICE_ID" >/dev/null 2>&1 || true
-xcrun simctl bootstatus "$DEVICE_ID" -b
+
+# xcodebuild owns booting the selected destination. Asking simctl to boot it
+# first adds an unbounded CoreSimulator call before xcodebuild's own
+# destination-timeout can produce useful evidence on a hosted runner.
 
 set -o pipefail
 xcodebuild test \
