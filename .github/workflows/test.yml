@@ -239,18 +239,35 @@ jobs:
           set -o pipefail
           LOG="$RUNNER_TEMP/AppLocalVoice-simulator-tests.log"
           RESULT="$RUNNER_TEMP/AppLocalVoice-simulator-tests.xcresult"
-          # The timeout launcher owns xcodebuild's process group, so a worker
-          # stall cannot outlive the 20-minute test deadline.
-          Scripts/run-with-timeout.pl 1200 xcodebuild \
-            xcodebuild test -project Testing/AppLocalVoice.xcodeproj -scheme AppLocalVoiceTests \
-            -destination "platform=iOS Simulator,id=$DEVICE_ID" \
-            -destination-timeout 120 \
-            -resultBundlePath "$RESULT" \
-            -derivedDataPath "$RUNNER_TEMP/AppLocalVoice-DerivedData" \
-            -parallel-testing-enabled NO \
-            -maximum-parallel-testing-workers 1 \
-            -enableCodeCoverage YES \
-            CODE_SIGNING_ALLOWED=NO 2>&1 | tee "$LOG"
+          DERIVED_DATA="$RUNNER_TEMP/AppLocalVoice-DerivedData"
+          : > "$LOG"
+          run_suite() {
+            rm -rf "$RESULT" "$DERIVED_DATA"
+            # The timeout launcher owns xcodebuild's process group, so a
+            # worker stall cannot outlive the 20-minute test deadline.
+            Scripts/run-with-timeout.pl 1200 xcodebuild \
+              xcodebuild test -project Testing/AppLocalVoice.xcodeproj -scheme AppLocalVoiceTests \
+              -destination "platform=iOS Simulator,id=$DEVICE_ID" \
+              -destination-timeout 120 \
+              -resultBundlePath "$RESULT" \
+              -derivedDataPath "$DERIVED_DATA" \
+              -parallel-testing-enabled NO \
+              -maximum-parallel-testing-workers 1 \
+              -enableCodeCoverage YES \
+              CODE_SIGNING_ALLOWED=NO 2>&1 | tee -a "$LOG"
+          }
+          if ! run_suite; then
+            # Hosted CoreSimulator can lose its service during a cold app
+            # launch. Retry once from a clean destination; each simctl call
+            # has its own process-group deadline so cleanup cannot mask the
+            # original evidence or consume the whole job.
+            echo '--- retrying simulator suite after first launch failure ---' | tee -a "$LOG"
+            Scripts/run-with-timeout.pl 120 simulator-reset \
+              xcrun simctl shutdown "$DEVICE_ID" || true
+            Scripts/run-with-timeout.pl 180 simulator-reset \
+              xcrun simctl erase "$DEVICE_ID" || true
+            run_suite
+          fi
       - name: Reconcile executed XCTest inventory
         run: |
           xcrun xcresulttool get test-results summary \

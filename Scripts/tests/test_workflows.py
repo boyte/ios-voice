@@ -95,12 +95,15 @@ class WorkflowContractTests(unittest.TestCase):
         self.assertNotIn("SWIFT_TREAT_WARNINGS_AS_ERRORS=YES", text)
         self.assertNotIn("needs: package-and-docs", text)
         self.assertGreaterEqual(text.count("Scripts/run-with-timeout.pl 1200"), 2)
+        self.assertIn("retrying simulator suite after first launch failure", text)
+        self.assertIn("Scripts/run-with-timeout.pl 180 simulator-reset", text)
         self.assertIn("Scripts/run-with-timeout.pl 1500 release-simulator", self.read("release-validation.yml"))
         self.assertGreaterEqual(text.count("timeout-minutes: 30"), 3)
         self.assertNotIn('destination "iOS Simulator ${{ matrix.name }} $DEVICE_ID"', text)
         self.assertNotIn('simctl boot "$DEVICE_ID"', text)
-        self.assertNotIn('xcrun simctl erase "$DEVICE_ID"', text)
-        self.assertNotIn('simctl shutdown "$DEVICE_ID"', text)
+        self.assertNotIn("- name: Reset and boot simulator", text)
+        self.assertIn('xcrun simctl shutdown "$DEVICE_ID" || true', text)
+        self.assertIn('xcrun simctl erase "$DEVICE_ID" || true', text)
 
     def test_external_actions_are_immutable_commit_pins(self) -> None:
         for path in (ROOT / ".github" / "workflows").glob("*.yml"):
