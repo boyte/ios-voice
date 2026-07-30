@@ -2,8 +2,8 @@
 
 This checklist is required for every tagged release. A release is not ready
 because the simulator build is green; the package's hard part is the audio
-lifecycle on real hardware. Current repository evidence and unprovable gates
-are reconciled in [ReleaseAudit.md](ReleaseAudit.md).
+lifecycle on real hardware. Record evidence against the candidate source
+revision.
 
 ## Current candidate evidence boundary
 
@@ -15,18 +15,9 @@ It must not be called device-qualified, route-qualified, interruption-qualified,
 or endurance-qualified. Required source/API/doc validation and honest known
 limitations still apply.
 
-**Evidence reconciliation is currently open.** Historical audit documents and
-the checked-in generated inventories do not yet agree on public-symbol and
-XCTest totals. Do not cite a test count, pass/skip count, API-symbol count, or
-simulator result as current release evidence until the native result bundles,
-both API baselines, and generated inventories have been reconciled. See
-[First open-source release](FirstOpenSourceRelease.md) and the open Beads work
-before selecting a release version.
-
-The historical checks recorded below remain useful as evidence of earlier
-work, but are not proof of the current source state. Even a reconciled
-simulator/provider-seam run does not prove physical-device or process-crash
-behavior.
+Do not cite a test count, API-symbol count, or simulator result without a
+matching retained artifact from the candidate source revision. Simulator and
+provider-seam results do not prove physical-device or process-crash behavior.
 
 Local implementation now includes executable transition tests, converter and
 Apple-driver fault seams, owner-scoped audio-session leases, canonical
@@ -38,7 +29,7 @@ energy/thermal/endurance, and process crash/relaunch. Git-host-dependent:
 previous-tag comparison, protected branches, reviewed commits, signed tags, and
 published release artifacts.
 
-Next evidence commands are maintained in the [open-task acceptance matrix](ReleaseAudit.md#open-task-acceptance-matrix).
+Use [RELEASING.md](../RELEASING.md) for the complete candidate commands.
 
 ## API and package
 
@@ -62,8 +53,8 @@ Next evidence commands are maintained in the [open-task acceptance matrix](Relea
 - [x] Run race, cancellation, stale-callback, repeated-cycle, and bounded
       property/fuzz-case tests with exact test-identity reconciliation; the
       simulator replay is evidence for the simulator only.
-- [x] Record deterministic benchmark results for latency, memory, and teardown
-      ([Benchmarks.md](Benchmarks.md); device-specific budgets remain open).
+- [x] Record deterministic benchmark results for latency, memory, and teardown;
+      device-specific budgets remain open.
 - [ ] Complete the physical-device matrix for the supported release devices,
       built-in route, Bluetooth route, wired route, interruptions, and
       foreground/background transitions.

@@ -1,28 +1,33 @@
 # Troubleshooting
 
-## “Microphone permission is required”
+## Recognition will not start
 
-Add `NSMicrophoneUsageDescription` to the host app’s `Info.plist`, then request listening from a user action. The package does not request permissions during unrelated onboarding.
+Call `capabilitySnapshot(for:)` and inspect permission, locale, and model
+readiness separately. Add both microphone and speech-recognition usage text to
+the host app. If a model is missing, offer explicit preparation with
+`.allowModelInstallation`; do not start capture to install it.
 
-## “Speech recognition permission is required”
+## Audio fails after a route change or interruption
 
-Include `NSSpeechRecognitionUsageDescription` for every host app that uses this
-package's Speech framework integration. The iOS 26 local path keeps audio
-on-device and does not use the legacy server-recognition authorization flow;
-this error is retained for compatibility with injected and legacy providers.
+End the current host voice state and let the user try again. Do not restart
+capture automatically. AirPods, wired headsets, calls, Siri, backgrounding, and
+media-services resets all require a fresh operation.
 
-## On-device recognition is unavailable
+## Playback does not complete
 
-Check the requested locale with `capabilities(for:)`. If the locale is supported but the model is missing, either install it in the host app’s preparation flow or use `.allowModelInstallation` when starting a turn.
+Queue acceptance is not completion. Wait for the accepted `SpeechPlaybackID`
+with `waitForSpeechPlayback(id:)`, or handle its terminal queue event. Check
+that the requested locale has an installed compatible voice.
 
-## Audio starts and immediately fails
+## Cleanup remains blocked
 
-Stop other audio and retry. If the problem follows AirPods or a wired headset, treat it as a route change and restart capture explicitly. Capture should never be automatically restarted in a loop.
+Only the app-owned service owner should call `close()`. If it returns
+`.blocked`, keep voice controls disabled and retry `close()` later. Do not
+create another service instance to bypass unresolved audio cleanup.
 
-## Enhanced voices sound unavailable
+## Reporting a device-only failure
 
-Open Settings → Accessibility → Read & Speak → Voices and install an Enhanced Quality voice for the desired language. AppLocalVoice can select installed voices but cannot silently download Apple system voices.
-
-## Debugging a device-only failure
-
-Record the device model, iOS version, locale, installed-model state, audio route, permission state, operation, and whether an interruption or route change occurred. Do not include microphone audio, transcript text, or TTS text in issue reports.
+Record the package version, iOS/Xcode version, device class, locale/model
+state, audio route, lifecycle sequence, and typed failure. Do not include
+recordings, transcript text, speech text, credentials, raw crash dumps, or
+unredacted logs.

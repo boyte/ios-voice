@@ -7,8 +7,7 @@ voice quality, energy use, or Apple model installation.
 Use `Scripts/run-device-validation.sh <physical-device-udid>` to capture the
 automated package-test evidence and create a report scaffold. Complete the
 manual scenario table in the generated report before treating a device cell
-as validated. The report format is documented in
-`Documentation/DeviceValidationReport.md`.
+as validated.
 
 ## Release matrix
 

@@ -27,8 +27,6 @@ REQUIRED_FILES = (
     ".github/workflows/test.yml",
     ".github/workflows/release-validation.yml",
     "Scripts/create-source-archive.sh",
-    "HARDENING_TRACKER.md",
-    "Documentation/ReleaseAudit.md",
     "Documentation/ReleaseChecklist.md",
 )
 

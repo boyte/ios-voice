@@ -129,9 +129,8 @@ actor VoiceCoordinator {
     )?
     // A bounded terminal cache makes a finish racing startup/finalization
     // observe the actual terminal result rather than an incidental
-    // invalid-state error. The capacity/text budget is frozen in
-    // ResourceBudgets.md; PTT-03 adds duration-expiry semantics to this same
-    // cache.
+    // invalid-state error. The capacity and duration behavior remain part of
+    // the canonical session contract.
     private var terminalRecognitionOutcomes: [RecognitionSessionID: Result<FinalTranscript, VoiceError>] = [:]
     private var terminalRecognitionOutcomeOrder: [RecognitionSessionID] = []
 

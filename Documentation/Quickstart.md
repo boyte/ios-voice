@@ -1,283 +1,127 @@
 # Quickstart
 
-AppLocalVoice is the local speech layer for an ordinary iPhone or iPad app on
-iOS 26 and later. It turns microphone speech into transcript publications and
-text into spoken audio. The host app keeps its existing chat composer, message
-model, backend client, persistence, and submit button.
+Use AppLocalVoice as one app-owned service. The package manages local Apple
+speech and audio-session cleanup. The host keeps the composer, messages,
+backend, persistence, and submit action.
 
-There is no keyboard extension requirement and no Botnoy-specific or backend
-coupling in the package. AppLocalVoice receives speech configuration and text;
-the host decides what that text means.
+## 1. Configure the host app
 
-## Install
-
-Add this repository as a Swift Package dependency and select the `AppLocalVoice`
-product. Add the microphone usage description to the host application's
-`Info.plist`:
+Add these keys to the host app's `Info.plist`:
 
 ```xml
 <key>NSMicrophoneUsageDescription</key>
-<string>This app uses the microphone to turn speech into text.</string>
+<string>This app uses the microphone to turn speech into editable text.</string>
+<key>NSSpeechRecognitionUsageDescription</key>
+<string>This app recognizes speech on this device so you can compose by voice.</string>
 ```
 
-Also add `NSSpeechRecognitionUsageDescription` with a clear explanation of how
-your app uses recognized speech. The iOS 26 local
-`SpeechAnalyzer`/`SpeechTranscriber` path keeps voice audio on-device; it does
-not use the legacy server-recognition authorization flow.
+## 2. Keep one service at the composition root
 
-## Ordinary chat integration
-
-Create one app-scoped `AppLocalVoice` service and one observation task for the
-voice surface. Keep the existing composer as the source of truth for editable
-text:
-
-1. On the click-to-speak button, save the current composer text and call
-   ``AppLocalVoice/startSession(configuration:)``.
-2. Consume ``AppLocalVoice/voiceEvents()``. Apply each newer
-   `TranscriptPreview.text` to the voice-owned composer range. A preview is a
-   complete replacement, not a delta.
-3. On button release or an explicit Done action, call
-   ``AppLocalVoice/finishSession(id:)``. Copy the returned `FinalTranscript.text`
-   into the composer, then let the user edit it normally.
-4. On Cancel or Discard, call
-   ``AppLocalVoice/cancelSession(id:)`` when a session is active and restore the
-   saved composer text. AppLocalVoice does not own submit or discard.
-5. When the user submits, send the current edited composer text through the
-   existing backend callback. A transcript event is never an implicit submit.
-
-The core session wiring looks like this. `composerText`,
-`preVoiceComposerText`, and the error/recovery presentation are host state:
-
-```swift
-import AppLocalVoice
-
-@MainActor
-final class ChatVoiceController {
-    let voice: AppLocalVoice
-    var composerText = ""
-    private var preVoiceComposerText = ""
-    private var activeSessionID: RecognitionSessionID?
-    private var lastPreviewRevision: UInt64 = 0
-
-    init(voice: AppLocalVoice = AppLocalVoice()) {
-        self.voice = voice
-    }
-
-    func observeVoiceEvents() async {
-        let events = await voice.voiceEvents()
-        do {
-            for try await event in events {
-                switch event {
-                case .snapshot(let snapshot):
-                    // A new observer starts from this finite state. Use the
-                    // same reconciliation after a delivery failure.
-                    applyVoiceSnapshot(snapshot)
-                case .recognition(let event):
-                    guard let activeSessionID,
-                          event.sessionID == activeSessionID else { continue }
-                    switch event.kind {
-                    case .transcript(.preview(let preview)):
-                        guard preview.revision > lastPreviewRevision else { continue }
-                        lastPreviewRevision = preview.revision
-                        composerText = preview.text
-                    case .transcript(.finalTranscript(let final)):
-                        composerText = final.text
-                    case .accepted, .stateChanged, .transcript(.stableChunk), .outcome:
-                        break
-                    }
-                case .speechQueue:
-                    // Update host playback controls from queue events.
-                    break
-                case .speechProgress:
-                    // Advisory UTF-16 progress only; terminal queue events
-                    // and waitForSpeechPlayback remain authoritative.
-                    break
-                case .recovery:
-                    // Show or clear host recovery UI from recovery events.
-                    break
-                }
-            }
-        } catch {
-            // A delivery gap is a host recovery condition; reconcile explicitly.
-        }
-    }
-
-    func beginVoiceTurn() async {
-        preVoiceComposerText = composerText
-        do {
-            let acceptance = try await voice.startSession(
-                configuration: .init(publicationPolicy: .previewAndFinal)
-            )
-            activeSessionID = acceptance.sessionID
-            lastPreviewRevision = 0
-        } catch {
-            // Keep the existing composer unchanged and present the error.
-        }
-    }
-
-    func finishVoiceTurn() async {
-        guard let activeSessionID else { return }
-        do {
-            let final = try await voice.finishSession(id: activeSessionID)
-            composerText = final.text
-            self.activeSessionID = nil
-        } catch {
-            // Keep the draft and present the host's retry/recovery action.
-        }
-    }
-
-    func discardVoiceTurn() async {
-        if let activeSessionID {
-            await voice.cancelSession(id: activeSessionID)
-        }
-        self.activeSessionID = nil
-        composerText = preVoiceComposerText
-    }
-}
-```
-
-`applyVoiceSnapshot(_:)` is host UI code. It reads `snapshot.recognition`,
-`snapshot.queue`, and `snapshot.recoveryState` to reconstruct controls without
-inventing a transcript, message, or backend action.
-
-## Composition roots
-
-The package does not provide an observable singleton or a chat view. Keep the
-one service at your composition root and pass the host controller/model to
-features that need it.
-
-### SwiftUI
+SwiftUI keeps the controller at the app root; UIKit can keep the same pair in
+an app or scene coordinator.
 
 ```swift
 @main
 struct ChatApp: App {
-    @State private var chatVoice = ChatVoiceController()
+    @State private var voice = ChatVoiceController(voice: AppLocalVoice())
 
     var body: some Scene {
-        WindowGroup { ChatView(voice: chatVoice) }
+        WindowGroup { ChatView(voice: voice) }
     }
 }
 ```
 
-Start the event task from the app-scoped controller/model. A disappearing child
-view cancels only its own UI task; it never calls `close()` on the shared voice
-service.
+Child views receive the existing controller or service. They may cancel their
+own event-observation task, but they do not call `close()` on shared work.
 
-### UIKit
+## 3. Start, preview, and finish a turn
+
+Start one session when the user presses a voice button. Finish that same
+session when the user releases it. Copy the final text into the host draft,
+then let the existing submit button handle it.
 
 ```swift
-final class ChatSceneCoordinator {
-    let voice = AppLocalVoice()
-    let controller: ChatVoiceController
-    private var observationTask: Task<Void, Never>?
+@MainActor
+final class ChatVoiceController {
+    let voice: AppLocalVoice
+    var composerText = ""
 
-    init() {
-        controller = ChatVoiceController(voice: voice)
-        observationTask = Task { await controller.observeVoiceEvents() }
+    private var sessionID: RecognitionSessionID?
+    private var previewRevision: UInt64 = 0
+
+    init(voice: AppLocalVoice) {
+        self.voice = voice
     }
 
-    func retireScene() async {
-        observationTask?.cancel()
-        _ = await voice.close()
+    func observe() async {
+        let events = await voice.voiceEvents()
+        do {
+            for try await event in events {
+                guard case .recognition(let recognition) = event,
+                      recognition.sessionID == sessionID,
+                      case .transcript(.preview(let preview)) = recognition.kind,
+                      preview.revision > previewRevision else { continue }
+                previewRevision = preview.revision
+                composerText = preview.text
+            }
+        } catch {
+            // Reconcile UI with await voice.runtimeSnapshot().
+        }
+    }
+
+    func begin() async throws {
+        let accepted = try await voice.startSession()
+        sessionID = accepted.sessionID
+        previewRevision = 0
+    }
+
+    func finish() async throws {
+        guard let sessionID else { return }
+        composerText = try await voice.finishSession(id: sessionID).text
+        self.sessionID = nil
+    }
+
+    func cancel() async {
+        if let sessionID { await voice.cancelSession(id: sessionID) }
+        self.sessionID = nil
     }
 }
 ```
 
-The scene/app coordinator owns retirement. View controllers receive the same
-controller or service through their initializer; they do not allocate another
-one for a toolbar button or transcript view.
+`TranscriptPreview` is a replacement for the voice-owned draft range, not a
+delta. Do not submit a preview or final transcript automatically.
 
-The host may use `.finalOnly` for a command that does not need live composer
-previews, or `.stableChunks(...)` for an append-only sink. Editable chat drafts
-are ordinary host composer behavior built from `.previewAndFinal`.
-
-## Speak returned text
-
-After the host submits its edited composer text, it handles the backend response
-and decides whether each returned message should be spoken. The backend is not
-passed to AppLocalVoice:
+## 4. Check readiness when it helps the user
 
 ```swift
-let acceptance = try await voice.enqueueSpeech(
-    returnedMessageText,
-    priority: .normal,
-    policy: .append
-)
+let locale = Locale(identifier: "en-US")
+let snapshot = await voice.capabilitySnapshot(for: locale)
 
-// Store acceptance.itemID beside the host message ID.
-let speechItemID = acceptance.itemID
-```
-
-Acceptance is immediate and does not mean playback has finished. Observe
-`.speechQueue` values from `voiceEvents()` for accepted, started, paused,
-resumed, and terminal outcome events. Keep the host message usable even when
-queue capacity, voice availability, or playback fails.
-
-For a replay button, use the stored item identity. Replay keeps the
-`SpeechItemID` and creates a new `SpeechPlaybackID`:
-
-```swift
-let replay = try await voice.replaySpeech(itemID: speechItemID)
-```
-
-The host owns whether to autoplay, which returned messages qualify, and how a
-message maps to its `SpeechItemID`.
-
-## Pause, resume, and stop
-
-Use the queue controls for returned chat text:
-
-```swift
-_ = await voice.pauseSpeechQueue()
-_ = await voice.resumeSpeechQueue()
-let stopped = await voice.stopSpeechQueue()
-```
-
-Use `pauseSpeechQueue()`, `resumeSpeechQueue()`, and `stopSpeechQueue()` for
-queued playback. The queue APIs are the better fit for assistant messages
-because they support acceptance, ordering, and replay.
-
-## Close and recover explicitly
-
-Cancel the event-observation task before retiring the voice surface. The
-canonical `voiceEvents()` stream does not end merely because `close()` is
-called. Then await cleanup:
-
-```swift
-observationTask.cancel()
-
-if case .blocked = await voice.close() {
-    // Keep voice controls disabled and offer an explicit retry-close action.
-    showVoiceRecovery = true
+if case .notInstalled(installationAvailable: true) = snapshot.recognition.modelReadiness {
+    try await voice.prepareRecognition(for: locale, policy: .allowModelInstallation)
 }
 ```
 
-Start another recognition or playback operation only after `close()` reports
-`.released`. Interruption, backgrounding, route loss, and event-delivery gaps are
-recoverable host states; do not silently restart capture. Let the user retry,
-discard the partial draft, reconcile the event stream, or close again as
-appropriate.
+Capability checks do not start audio. Preparation is optional and explicit; it
+can request permission or a system-managed local model installation, but it
+does not create a session.
 
-## Local-only model policy
-
-The default recognition policy uses an installed Apple speech model. A host may
-explicitly allow model installation before a click-to-speak turn:
+## 5. Speak text your app selected
 
 ```swift
-let readiness = await voice.capabilitySnapshot()
-if case .notInstalled(installationAvailable: true) = readiness.recognition.modelReadiness {
-    try await voice.prepareRecognition(policy: .allowModelInstallation)
-}
+let accepted = try await voice.enqueueSpeech(replyText)
+let result = try await voice.waitForSpeechPlayback(id: accepted.playbackID)
 ```
 
-Model installation is separate from recognition. AppLocalVoice does not upload
-microphone audio and has no cloud fallback.
+Use `enqueueSpeech` for replies with replay/history and `speakImmediately` for
+a one-off prompt. Queue acceptance is not completion. Use terminal queue
+events or `waitForSpeechPlayback(id:)` for the result.
 
-## Why there is no one-shot transcribe
+## 6. Retire the service explicitly
 
-Recognition has an explicit start and finish boundary because chat hosts need to
-show previews, let the user edit or discard the draft, and decide when text is
-submitted. The session APIs make those ownership boundaries visible. Hosts that
-want a one-shot command can call `startSession`, wait for the final event, and
-call `finishSession`; the package intentionally does not hide that lifecycle in
-an API that could imply automatic submission.
+Cancel the event task, then call `close()` from the app or scene owner. A
+`.blocked` result means cleanup needs another explicit attempt. Keep voice
+controls disabled until `recoveryState` is ready.
+
+For edge cases, read [Recovery](Recovery.md), [Audio lifecycle](AudioLifecycle.md),
+and [On-device speech](OnDeviceSpeech.md).

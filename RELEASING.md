@@ -4,11 +4,7 @@ AppLocalVoice is an iOS Swift Package. A release is a source tag whose
 checked-in API baseline, documentation, deterministic tests, and device report
 describe the same source state.
 
-For public-release history and the corrective release procedure, start with
-[First open-source release](Documentation/FirstOpenSourceRelease.md). The
-current checkout has a Git remote and `v0.1.0`; the tag workflow's
-previous-version comparison still needs a tested first-tag bootstrap policy
-before a corrective tag can be fully validated. This document does not
+The current checkout has a Git remote and `v0.1.0`. This document does not
 authorize publication while required CI or device-evidence gates remain open.
 
 Binary result bundles, logs, and benchmark outputs are release artifacts, not
@@ -18,9 +14,9 @@ privacy-safe Markdown report and any hashed evidence manifest.
 ## Versioning
 
 - Use semantic version tags of the form `vMAJOR.MINOR.PATCH`.
-- Until `1.0.0`, breaking API reductions are allowed only with an explicit
-  migration note in `CHANGELOG.md`; after `1.0.0`, follow the compatibility
-  contract strictly.
+- Until `1.0.0`, breaking API reductions require an explicit migration note in
+  `CHANGELOG.md`. Select the next semantic version from the actual public API
+  change; do not assume a patch increment.
 - Never update `PublicAPISymbols.json` to hide an accidental removal. Compare
   the candidate graph with the previous tag first.
 

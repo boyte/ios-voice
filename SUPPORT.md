@@ -7,8 +7,8 @@ and focused proposals; this document does not promise response times.
 ## Before asking for help
 
 - Start with the [README](README.md), [Quickstart](Documentation/Quickstart.md),
-  [Troubleshooting](Documentation/Troubleshooting.md), and
-  [Support Matrix](Documentation/SupportMatrix.md).
+  [Recovery guide](Documentation/Recovery.md), and
+  [on-device speech guide](Documentation/OnDeviceSpeech.md).
 - Confirm the host is an ordinary iPhone or iPad app targeting iOS 26, not a
   keyboard extension or background-recording use case.
 - Check model, locale, voice, and permission readiness at runtime. Those are
