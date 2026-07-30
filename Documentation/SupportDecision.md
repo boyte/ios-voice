@@ -29,8 +29,8 @@ The detailed contract is [SupportMatrix.md](SupportMatrix.md).
 2. The Apple input provider uses `SpeechTranscriber.isAvailable`,
    `supportedLocale(equivalentTo:)`, `installedLocales`, and `AssetInventory`.
    Support therefore cannot honestly be expressed as a permanent list of
-   devices or locales. The existing public `SpeechCapabilities` and typed
-   errors already model the correct runtime boundary.
+   devices or locales. The public `VoiceCapabilitySnapshot` and typed errors
+   model the correct runtime boundary.
 3. Synthesis enumerates installed `AVSpeechSynthesisVoice` values. Exact locale
    matches precede same-language fallbacks, quality preference is deterministic,
    and absent or mismatched voices fail instead of silently switching language.

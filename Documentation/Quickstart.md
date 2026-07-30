@@ -170,10 +170,9 @@ _ = await voice.resumeSpeechQueue()
 let stopped = await voice.stopSpeechQueue()
 ```
 
-Use `pauseSpeaking()`, `resumeSpeaking()`, and `stopSpeaking()` for one direct
-``AppLocalVoice/speak(_:configuration:)`` request. The queue APIs are usually
-the better fit for assistant messages because they support acceptance,
-ordering, and replay.
+Use `pauseSpeechQueue()`, `resumeSpeechQueue()`, and `stopSpeechQueue()` for
+queued playback. The queue APIs are the better fit for assistant messages
+because they support acceptance, ordering, and replay.
 
 ## Close and recover explicitly
 

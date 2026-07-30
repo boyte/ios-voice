@@ -245,10 +245,10 @@ Recognition finalization is deliberately ordered:
 8. return the provider's final transcript snapshot.
 
 The package does not impose an undocumented wall-clock timeout on
-`finishListening()`. A timeout would need to define whether partial text is
+`finishSession(id:)`. A timeout would need to define whether partial text is
 returned, whether the host receives a failure, and how a non-cooperative Apple
 framework task is isolated. In 0.1 the host owns that policy: it may cancel the
-calling task or call `cancelListening()` from its own bounded task. Cancellation
+calling task or call `cancelSession(id:)` from its own bounded task. Cancellation
 always takes the normal teardown path and a cancelled generation cannot emit a
 later final transcript. A future timeout API must be additive and specify all
 three outcomes—returned text, typed failure, and resource cleanup—before it is

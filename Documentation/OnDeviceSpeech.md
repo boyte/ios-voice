@@ -66,7 +66,7 @@ when only compact voices are available.
 Availability varies by iOS release, device, locale, and installed Apple assets. AppLocalVoice intentionally does not promise universal locale coverage or automatic cloud fallback.
 
 Recognition has no hidden maximum-duration timer in 0.1. The host owns the
-turn boundary and must call `finishListening()` or `cancelListening()`; the
+turn boundary and must call `finishSession(id:)` or `cancelSession(id:)`; the
 bounded event buffer and 1,048,576-UTF-16 transcript ceiling prevent an
 unbounded text accumulation if a host leaves a turn open or sends an oversized
 request. A host that needs a maximum duration should cancel the task using its

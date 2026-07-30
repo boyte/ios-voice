@@ -7,8 +7,8 @@ number as a universal guarantee.
 
 Record median, p95, and maximum for:
 
-- time from `startListening` to first partial transcript;
-- time from `finishListening` to final text;
+- time from `startSession` to first preview transcript;
+- time from `finishSession(id:)` to final text;
 - time from `speak` to first audible output;
 - teardown time after cancellation;
 - model capability lookup;

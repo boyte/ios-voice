@@ -62,9 +62,9 @@ The same walkthrough is available in the package’s [DocC Local Echo guide](../
 
 ## Adapt the example to an existing app
 
-Local Echo keeps its UI intentionally small and uses the compatibility methods
-`startListening`, `finishListening`, `cancelListening`, and `events()`. A chat
-host should instead keep one app-scoped `AppLocalVoice`, subscribe once with
+Local Echo keeps its UI intentionally small and uses one identified recognition
+session plus the canonical event stream. A chat host should keep one app-scoped
+`AppLocalVoice`, subscribe once with
 `voiceEvents()`, and use `startSession(configuration:)` for click-to-speak:
 
 - apply newer `TranscriptPreview.text` values to the existing composer;

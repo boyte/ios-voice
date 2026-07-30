@@ -38,7 +38,7 @@ speech text.
 
 If the synthesizer rejects a stop request, AppLocalVoice retains the active
 utterance and audio lease instead of reporting clean teardown. A later
-stopSpeaking() or close() retries the stop boundary; resourcesAreReleased is
+queue stop controls or close() retries the stop boundary; resourcesAreReleased is
 not considered true until the request is accepted and the lease is restored.
 
 ## Host retry rule

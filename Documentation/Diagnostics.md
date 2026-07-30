@@ -20,8 +20,8 @@ interruptions or typed failures are `.failed` with a stable content-free error
 category. A successful terminal record is emitted only after input resources are
 observed released; an unresolved release is instead a failed terminal record,
 with a later `close` operation recording cleanup retry truth under its own ID.
-Legacy `startListening` calls retain their existing facade-generated operation
-identity and do not receive a duplicate canonical record.
+Every recognition diagnostic uses its session identity and has one terminal
+record.
 
 Each record contains only operation identity, operation and phase, serialized
 state, a stable error category when applicable, a coarse route class, and
