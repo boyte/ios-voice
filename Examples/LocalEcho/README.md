@@ -2,7 +2,7 @@
 
 Local Echo is the small reference app for AppLocalVoice. It records speech,
 displays the transcript, and speaks the same text back. It has no chat
-backend, account, API key, Botnoy integration, or cloud speech service.
+backend, account, API key, app integrations, or cloud speech service.
 
 The example targets iOS 26 and demonstrates local Apple speech APIs in an
 ordinary application target. It is not a keyboard extension and is not a
