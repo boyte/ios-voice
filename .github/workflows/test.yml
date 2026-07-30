@@ -196,20 +196,6 @@ jobs:
           echo "name=$SIMULATOR_NAME" >> "$GITHUB_OUTPUT"
           echo "runtime=$IOS_SIMULATOR_RUNTIME" >> "$GITHUB_OUTPUT"
           xcrun simctl list devices available | awk -v id="$DEVICE_ID" 'index($0, "(" id ")") {print; exit}'
-      - name: Reset and boot simulator
-        shell: bash
-        env:
-          DEVICE_ID: ${{ steps.simulator.outputs.id }}
-        run: |
-          set -euo pipefail
-          # Each GitHub-hosted job has its own runner image, so a preflight
-          # erase cannot make this test cleaner. It can, however, stall in
-          # CoreSimulator before XCTest starts. A clean erase remains part of
-          # the two-pass tag workflow; normal CI only boots its isolated
-          # device and bounds the wait so diagnostics can still be uploaded.
-          xcrun simctl boot "$DEVICE_ID" >/dev/null 2>&1 || true
-          perl -e '$SIG{ALRM}=sub { print STDERR "simulator boot watchdog expired\\n"; exit 124 }; alarm 300; exec @ARGV' -- \
-            xcrun simctl bootstatus "$DEVICE_ID" -b
       - name: Resolve simulator runtime build
         id: simulator-provenance
         shell: bash

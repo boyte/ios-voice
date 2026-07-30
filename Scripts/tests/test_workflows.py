@@ -97,7 +97,7 @@ class WorkflowContractTests(unittest.TestCase):
         self.assertGreaterEqual(text.count("alarm 1200"), 2)
         self.assertGreaterEqual(text.count("timeout-minutes: 30"), 3)
         self.assertNotIn('destination "iOS Simulator ${{ matrix.name }} $DEVICE_ID"', text)
-        self.assertIn('simulator boot watchdog expired', text)
+        self.assertNotIn('simctl boot "$DEVICE_ID"', text)
         self.assertNotIn('xcrun simctl erase "$DEVICE_ID"', text)
 
     def test_external_actions_are_immutable_commit_pins(self) -> None:
