@@ -6,6 +6,13 @@ All notable changes to AppLocalVoice are documented here.
 
 ### Corrective release work
 
+- Removed the pre-iOS-26 compatibility facade and aliases. New integrations use
+  identified recognition sessions, `voiceEvents()`, explicit readiness, and
+  identified immediate or queued playback.
+- Rebuilt Local Echo and the public integration guides around the canonical
+  app-owned service model. Added explicit early-access support and privacy-safe
+  bug-report guidance; physical-device qualification remains unclaimed.
+
 - Track CI, documentation, governance, and privacy corrections for the next
   patch release. Physical-device qualification remains separate release
   evidence and is not implied by this work.

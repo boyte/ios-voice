@@ -11,9 +11,8 @@ networking, persistence, and the decision to send or speak text.
 > **Project status:** AppLocalVoice is publicly available as a Swift package
 > from [`boyte/ios-voice`](https://github.com/boyte/ios-voice), beginning with
 > version `0.1.0`, and includes a runnable reference app. This is an early 0.x
-> release. Physical-device validation (routes, interruptions, AirPods,
-> external audio, and endurance) is still required before treating a release
-> as device-qualified for your app.
+> release. It is useful for early adopters, but it is not device-qualified.
+> Please [report reproducible bugs](https://github.com/boyte/ios-voice/issues/new?template=bug_report.md), especially route, interruption, model, or endurance failures, without including audio or speech content.
 
 ## Scope boundary
 
@@ -251,6 +250,26 @@ By default, recognition uses only an installed model. Passing
 still does not start capture. Availability is device-, locale-, and
 OS-dependent, so handle a failed start even after a successful preflight.
 
+| Readiness result | Host action |
+| --- | --- |
+| `.installed` | Enable press-to-talk; a later session can still fail if route or permission changes. |
+| `.notInstalled(installationAvailable: true)` | Offer an explicit preparation action; do not start capture just to install. |
+| `.notInstalled(installationAvailable: false)` or `.unavailable` | Keep voice input unavailable and explain the locale/device limitation. |
+| permission denied/restricted | Direct the user to the host app’s relevant Settings guidance. |
+
+## Choose a playback lane
+
+| Intent | Call | Completion authority |
+| --- | --- | --- |
+| Speak a chat reply, retain replay/history | `enqueueSpeech` | `.speechQueue` terminal event or `waitForSpeechPlayback` |
+| Speak one local prompt, do not retain it | `speakImmediately` | `waitForSpeechPlayback` |
+| Drive controls or text highlighting | queue controls / `.speechProgress` | terminal outcome; progress is advisory and UTF-16 indexed |
+
+Acceptance only means the library reserved a playback identity. It is not a
+success result and it never implies that audio began. `speechProgress` may skip
+intermediate values; use it only to render optional highlighting, never to
+persist message state.
+
 ## API guide
 
 | Need | Use |
@@ -350,6 +369,14 @@ Your app remains responsible for any text it sends to a backend, its own
 analytics/logging, consent flows, retention policy, and backend security. Read
 the [privacy boundary](Documentation/Privacy.md) and
 [security policy](SECURITY.md) before shipping.
+
+## Report a bug
+
+Early reports make the package better. Include the package version, iOS/Xcode
+versions, device class (never its identifier), locale/model readiness, audio
+route, a content-free lifecycle sequence, and the typed error or recovery state.
+Do not attach recordings, transcript/TTS text, credentials, raw crash dumps, or
+unredacted logs. See [Support](SUPPORT.md) for the full privacy-safe checklist.
 
 ## Documentation
 

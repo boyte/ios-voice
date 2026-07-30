@@ -18,7 +18,7 @@ assignees: ""
 - Package version or commit:
 - iOS version and build:
 - Xcode version:
-- Device or simulator:
+- Device or simulator class (do not include a UDID):
 - Locale/model readiness:
 - Audio route (built-in, Bluetooth, wired, other):
 

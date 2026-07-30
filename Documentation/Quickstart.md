@@ -64,6 +64,10 @@ final class ChatVoiceController {
         do {
             for try await event in events {
                 switch event {
+                case .snapshot(let snapshot):
+                    // A new observer starts from this finite state. Use the
+                    // same reconciliation after a delivery failure.
+                    applyVoiceSnapshot(snapshot)
                 case .recognition(let event):
                     guard let activeSessionID,
                           event.sessionID == activeSessionID else { continue }
@@ -79,6 +83,10 @@ final class ChatVoiceController {
                     }
                 case .speechQueue:
                     // Update host playback controls from queue events.
+                    break
+                case .speechProgress:
+                    // Advisory UTF-16 progress only; terminal queue events
+                    // and waitForSpeechPlayback remain authoritative.
                     break
                 case .recovery:
                     // Show or clear host recovery UI from recovery events.
@@ -123,6 +131,55 @@ final class ChatVoiceController {
     }
 }
 ```
+
+`applyVoiceSnapshot(_:)` is host UI code. It reads `snapshot.recognition`,
+`snapshot.queue`, and `snapshot.recoveryState` to reconstruct controls without
+inventing a transcript, message, or backend action.
+
+## Composition roots
+
+The package does not provide an observable singleton or a chat view. Keep the
+one service at your composition root and pass the host controller/model to
+features that need it.
+
+### SwiftUI
+
+```swift
+@main
+struct ChatApp: App {
+    @State private var chatVoice = ChatVoiceController()
+
+    var body: some Scene {
+        WindowGroup { ChatView(voice: chatVoice) }
+    }
+}
+```
+
+Start the event task from the app-scoped controller/model. A disappearing child
+view cancels only its own UI task; it never calls `close()` on the shared voice
+service.
+
+### UIKit
+
+```swift
+final class ChatSceneCoordinator {
+    let voice = AppLocalVoice()
+    let controller: ChatVoiceController
+
+    init() {
+        controller = ChatVoiceController(voice: voice)
+    }
+
+    func retireScene() async {
+        controller.stopObserving()
+        _ = await voice.close()
+    }
+}
+```
+
+The scene/app coordinator owns retirement. View controllers receive the same
+controller or service through their initializer; they do not allocate another
+one for a toolbar button or transcript view.
 
 The host may use `.finalOnly` for a command that does not need live composer
 previews, or `.stableChunks(...)` for an append-only sink. Editable chat drafts

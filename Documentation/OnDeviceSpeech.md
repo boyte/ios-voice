@@ -46,13 +46,11 @@ reflects the provider’s current device state. See
 
 ## Capability checks
 
-Call `capabilities(for:)` before presenting a voice action when the host wants
-to explain support proactively. `isSupported` means the locale is recognized by
-`SpeechTranscriber`; `supportsOnDevice` additionally requires a device that can
-run the transcriber and a ready local asset. The returned `locale` is Apple's
-resolved locale, which may be a same-language regional fallback. Distinguish
-unsupported locales, unavailable hardware, missing models, and permission
-denial rather than treating them as one generic failure.
+Call `capabilitySnapshot(for:)` before presenting a voice action when the host
+wants to explain support proactively. Its recognition availability, resolved
+locale, model readiness, permissions, and installed voices are separate values;
+distinguish unavailable hardware, missing models, and permission denial rather
+than treating them as one generic failure.
 
 ## Voices
 
@@ -65,9 +63,8 @@ when only compact voices are available.
 
 Availability varies by iOS release, device, locale, and installed Apple assets. AppLocalVoice intentionally does not promise universal locale coverage or automatic cloud fallback.
 
-Recognition has no hidden maximum-duration timer in 0.1. The host owns the
-turn boundary and must call `finishSession(id:)` or `cancelSession(id:)`; the
-bounded event buffer and 1,048,576-UTF-16 transcript ceiling prevent an
-unbounded text accumulation if a host leaves a turn open or sends an oversized
-request. A host that needs a maximum duration should cancel the task using its
-own product policy.
+Recognition defaults to a 120-second capture limit after it reaches listening.
+Hosts still own the turn boundary and normally call `finishSession(id:)` or
+`cancelSession(id:)`; they may configure a different finite limit or `nil` when
+their product has a clear lifecycle policy. The bounded event buffer and
+1,048,576-UTF16 transcript ceiling prevent unbounded text accumulation.

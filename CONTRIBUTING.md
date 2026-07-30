@@ -11,8 +11,8 @@ for the complete contribution policy.
 
 ## Before opening a pull request
 
-- Read the relevant public files in `Documentation/`, especially the
-  compatibility contract, state machine, and release guidance.
+- Read the [public API contract](Documentation/PublicAPI.md),
+  [Quickstart](Documentation/Quickstart.md), and release guidance.
 - Keep production changes focused and add a deterministic test for each behavior change.
 - Do not add networking, analytics, credentials, persistence, or provider SDKs to the core package.
 - Do not log microphone audio, transcript text, or speech text.

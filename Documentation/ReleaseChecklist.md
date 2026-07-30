@@ -7,6 +7,14 @@ are reconciled in [ReleaseAudit.md](ReleaseAudit.md).
 
 ## Current candidate evidence boundary
 
+## Early-access releases
+
+An early 0.x release may be published with physical-device cells still unknown,
+provided its release notes say so plainly and request privacy-safe bug reports.
+It must not be called device-qualified, route-qualified, interruption-qualified,
+or endurance-qualified. Required source/API/doc validation and honest known
+limitations still apply.
+
 **Evidence reconciliation is currently open.** Historical audit documents and
 the checked-in generated inventories do not yet agree on public-symbol and
 XCTest totals. Do not cite a test count, pass/skip count, API-symbol count, or
