@@ -351,15 +351,6 @@ jobs:
           name: applocalvoice-simulator-evidence-manifest-${{ matrix.id }}
           path: ${{ runner.temp }}/AppLocalVoice-simulator-manifest.json
           if-no-files-found: error
-      - name: Shutdown simulator
-        if: always()
-        shell: bash
-        env:
-          DEVICE_ID: ${{ steps.simulator.outputs.id }}
-        run: |
-          set +e
-          test -n "${DEVICE_ID:-}" && xcrun simctl shutdown "$DEVICE_ID"
-
   benchmarks:
     runs-on: macos-15
     # A cold hosted runner can spend several minutes resolving and compiling

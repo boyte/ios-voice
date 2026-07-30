@@ -99,6 +99,7 @@ class WorkflowContractTests(unittest.TestCase):
         self.assertNotIn('destination "iOS Simulator ${{ matrix.name }} $DEVICE_ID"', text)
         self.assertNotIn('simctl boot "$DEVICE_ID"', text)
         self.assertNotIn('xcrun simctl erase "$DEVICE_ID"', text)
+        self.assertNotIn('simctl shutdown "$DEVICE_ID"', text)
 
     def test_external_actions_are_immutable_commit_pins(self) -> None:
         for path in (ROOT / ".github" / "workflows").glob("*.yml"):
