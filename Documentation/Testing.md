@@ -137,11 +137,13 @@ xcrun simctl shutdown 'iPhone 17 Pro'
 ```
 
 The CI workflow follows the same ownership protocol: one workflow run per
-ref, one simulator-test job after the package build, a clean erase/boot, one
-XCTest worker, a 30-minute job bound, and an always-run diagnostics/upload
-path. These controls do not repair Xcode or CoreSimulator; they make a worker
-materialization stall bounded and diagnosable instead of leaving an ambiguous
-runner behind.
+ref, one isolated simulator-test job per supported form factor, one XCTest
+worker, a 30-minute job bound, and an always-run diagnostics/upload path.
+Normal hosted CI boots its fresh runner device without a preflight erase because
+an erase can itself stall CoreSimulator before XCTest begins. The tag workflow
+retains two separately erased simulator passes. These controls do not repair
+Xcode or CoreSimulator; they make a worker materialization stall bounded and
+diagnosable instead of leaving an ambiguous runner behind.
 
 When investigating a stall, preserve the uploaded `.xcresult`, the
 `xcodebuild` log, the simulator list, and the recent CoreSimulator log. The

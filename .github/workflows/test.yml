@@ -202,13 +202,14 @@ jobs:
           DEVICE_ID: ${{ steps.simulator.outputs.id }}
         run: |
           set -euo pipefail
-          # A clean boot avoids stale SpringBoard/CoreSimulator state from a
-          # previously interrupted worker. The cleanup step is repeated in
-          # the always-run diagnostics path below.
-          xcrun simctl shutdown "$DEVICE_ID" || true
-          xcrun simctl erase "$DEVICE_ID"
-          xcrun simctl boot "$DEVICE_ID"
-          xcrun simctl bootstatus "$DEVICE_ID" -b
+          # Each GitHub-hosted job has its own runner image, so a preflight
+          # erase cannot make this test cleaner. It can, however, stall in
+          # CoreSimulator before XCTest starts. A clean erase remains part of
+          # the two-pass tag workflow; normal CI only boots its isolated
+          # device and bounds the wait so diagnostics can still be uploaded.
+          xcrun simctl boot "$DEVICE_ID" >/dev/null 2>&1 || true
+          perl -e '$SIG{ALRM}=sub { print STDERR "simulator boot watchdog expired\\n"; exit 124 }; alarm 300; exec @ARGV' -- \
+            xcrun simctl bootstatus "$DEVICE_ID" -b
       - name: Resolve simulator runtime build
         id: simulator-provenance
         shell: bash
