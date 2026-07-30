@@ -104,12 +104,12 @@ jobs:
           @MainActor
           func cleanClientImport() async throws {
               let voice = AppLocalVoice()
-              let _: VoiceState = await voice.state
-              let _: SpeechCapabilities = await voice.capabilities()
-              try await voice.startListening()
-              let text = try await voice.finishListening()
-              try await voice.speak(text)
-              await voice.close()
+              let _: VoiceCapabilitySnapshot = await voice.capabilitySnapshot()
+              let session = try await voice.startSession()
+              let transcript = try await voice.finishSession(id: session.sessionID)
+              let playback = try await voice.speakImmediately(transcript.text)
+              _ = try await voice.waitForSpeechPlayback(id: playback.playbackID)
+              _ = await voice.close()
           }
           SWIFT
           PACKAGE_BUILD="$RUNNER_TEMP/AppLocalVoice-PackageBuild"

@@ -19,6 +19,16 @@ class WorkflowContractTests(unittest.TestCase):
         self.assertIn("name: iPad Pro 11-inch (M5)", text)
         self.assertIn("${{ matrix.id }}", text)
 
+    def test_clean_client_uses_only_canonical_public_api(self) -> None:
+        for name in ("test.yml", "release-validation.yml"):
+            text = self.read(name)
+            self.assertIn("voice.startSession()", text)
+            self.assertIn("voice.finishSession(id: session.sessionID)", text)
+            self.assertIn("voice.speakImmediately(transcript.text)", text)
+            self.assertNotIn("voice.startListening()", text)
+            self.assertNotIn("voice.finishListening()", text)
+            self.assertNotIn("voice.speak(text)", text)
+
     def test_release_matrix_retains_resolved_candidate_documentation(self) -> None:
         text = self.read("release-validation.yml")
         self.assertIn("id: iphone-17-pro", text)
