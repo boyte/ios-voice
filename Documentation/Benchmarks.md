@@ -50,7 +50,8 @@ or attaching to CI. It must not be copied into a release report as device
 performance evidence.
 
 The runner selects and boots an available iPhone Simulator, then shuts it down
-on exit. Hosted jobs use their isolated runner state; set
+on exit. Hosted jobs use their isolated runner state without a preflight
+shutdown; set
 `APPLOCALVOICE_ERASE_SIMULATOR=1` for a deliberately clean local campaign.
 Build products are kept in an output-adjacent derived-data directory rather
 than in the default per-user location. It never requires a connected iPhone or

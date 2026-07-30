@@ -67,10 +67,12 @@ cleanup() {
 }
 trap cleanup EXIT
 
-xcrun simctl shutdown "$DEVICE_ID" >/dev/null 2>&1 || true
 case "$ERASE_SIMULATOR" in
   0) ;;
-  1) xcrun simctl erase "$DEVICE_ID" ;;
+  1)
+    xcrun simctl shutdown "$DEVICE_ID" >/dev/null 2>&1 || true
+    xcrun simctl erase "$DEVICE_ID"
+    ;;
   *) echo "APPLOCALVOICE_ERASE_SIMULATOR must be 0 or 1" >&2; exit 2 ;;
 esac
 xcrun simctl boot "$DEVICE_ID" >/dev/null 2>&1 || true
