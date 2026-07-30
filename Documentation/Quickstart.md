@@ -53,11 +53,15 @@ import AppLocalVoice
 
 @MainActor
 final class ChatVoiceController {
-    let voice = AppLocalVoice()
+    let voice: AppLocalVoice
     var composerText = ""
     private var preVoiceComposerText = ""
     private var activeSessionID: RecognitionSessionID?
     private var lastPreviewRevision: UInt64 = 0
+
+    init(voice: AppLocalVoice = AppLocalVoice()) {
+        self.voice = voice
+    }
 
     func observeVoiceEvents() async {
         let events = await voice.voiceEvents()
@@ -165,13 +169,15 @@ service.
 final class ChatSceneCoordinator {
     let voice = AppLocalVoice()
     let controller: ChatVoiceController
+    private var observationTask: Task<Void, Never>?
 
     init() {
         controller = ChatVoiceController(voice: voice)
+        observationTask = Task { await controller.observeVoiceEvents() }
     }
 
     func retireScene() async {
-        controller.stopObserving()
+        observationTask?.cancel()
         _ = await voice.close()
     }
 }

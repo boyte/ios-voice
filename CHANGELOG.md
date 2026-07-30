@@ -4,7 +4,7 @@ All notable changes to AppLocalVoice are documented here.
 
 ## Unreleased
 
-### Corrective release work
+### Canonical API cleanup (breaking under 1.0)
 
 - Removed the pre-iOS-26 compatibility facade and aliases. New integrations use
   identified recognition sessions, `voiceEvents()`, explicit readiness, and
@@ -13,9 +13,10 @@ All notable changes to AppLocalVoice are documented here.
   app-owned service model. Added explicit early-access support and privacy-safe
   bug-report guidance; physical-device qualification remains unclaimed.
 
-- Track CI, documentation, governance, and privacy corrections for the next
-  patch release. Physical-device qualification remains separate release
-  evidence and is not implied by this work.
+- The next release must use an appropriate pre-1.0 breaking-version increment,
+  pass the hosted validation matrix, and compare its public API with `v0.1.0`
+  before publication. Physical-device qualification remains separate evidence
+  and is not implied by this work.
 - Fixed the hosted XCTest warning-policy conflict, allowed bounded cold-run
   benchmark setup time, and made simulator, benchmark, and memory evidence
   jobs independent of documentation linting.
@@ -68,13 +69,3 @@ All notable changes to AppLocalVoice are documented here.
 - Added documentation for local SwiftPM use, source-release preparation, and
   the boundaries between simulator evidence, physical-device validation, and
   hosted-release requirements.
-
-### Known limitations
-
-- Physical-device validation remains required for microphone routes, Bluetooth
-  and wired audio, interruptions, model and voice availability, endurance,
-  thermal/energy behavior, and crash/relaunch behavior.
-- The initial `v0.1.0` release predates the corrective hosted-CI run. The
-  `v0.1.1` candidate must pass the full hosted matrix and compare its public
-  API with `v0.1.0` before publication, as described in
-  [RELEASING.md](RELEASING.md).
