@@ -94,7 +94,8 @@ class WorkflowContractTests(unittest.TestCase):
 
         self.assertNotIn("SWIFT_TREAT_WARNINGS_AS_ERRORS=YES", text)
         self.assertNotIn("needs: package-and-docs", text)
-        self.assertGreaterEqual(text.count("alarm 1200"), 2)
+        self.assertGreaterEqual(text.count("Scripts/run-with-timeout.pl 1200"), 2)
+        self.assertIn("Scripts/run-with-timeout.pl 1500 release-simulator", self.read("release-validation.yml"))
         self.assertGreaterEqual(text.count("timeout-minutes: 30"), 3)
         self.assertNotIn('destination "iOS Simulator ${{ matrix.name }} $DEVICE_ID"', text)
         self.assertNotIn('simctl boot "$DEVICE_ID"', text)

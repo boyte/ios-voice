@@ -145,7 +145,7 @@ jobs:
             xcrun simctl erase "$DEVICE_ID"
             xcrun simctl boot "$DEVICE_ID"
             xcrun simctl bootstatus "$DEVICE_ID" -b
-            perl -e '$SIG{ALRM}=sub { print STDERR "release simulator watchdog expired\n"; exit 124 }; alarm 1500; exec @ARGV' -- \
+            Scripts/run-with-timeout.pl 1500 release-simulator \
               xcodebuild test -project Testing/AppLocalVoice.xcodeproj -scheme AppLocalVoiceTests \
               -destination "platform=iOS Simulator,id=$DEVICE_ID" \
               -destination-timeout 120 \
@@ -183,9 +183,9 @@ jobs:
           APPLOCALVOICE_SIMULATOR_RUNTIME: ${{ env.IOS_SIMULATOR_RUNTIME }}
         run: |
           set -euo pipefail
-          perl -e '$SIG{ALRM}=sub { print STDERR "release benchmark watchdog expired\n"; exit 124 }; alarm 600; exec @ARGV' -- \
+          Scripts/run-with-timeout.pl 600 release-benchmark \
             Scripts/run-benchmarks.sh "$RUNNER_TEMP/release-benchmarks"
-          perl -e '$SIG{ALRM}=sub { print STDERR "release memory watchdog expired\n"; exit 124 }; alarm 600; exec @ARGV' -- \
+          Scripts/run-with-timeout.pl 600 release-memory \
             Scripts/run-memory-sweep.sh "$RUNNER_TEMP/release-memory"
       - name: Validate release tag and locate previous release
         id: tags

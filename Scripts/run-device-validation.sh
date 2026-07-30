@@ -95,7 +95,7 @@ PY
 )"
 
 set +e
-perl -e '$SIG{ALRM}=sub { print STDERR "physical-device watchdog expired\n"; exit 124 }; alarm 1800; exec @ARGV' -- xcodebuild test \
+Scripts/run-with-timeout.pl 1800 physical-device xcodebuild test \
   -project "$ROOT_DIR/Testing/AppLocalVoice.xcodeproj" \
   -scheme AppLocalVoiceTests \
   -destination "platform=iOS,id=$DEVICE_ID" \

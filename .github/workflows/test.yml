@@ -239,10 +239,9 @@ jobs:
           set -o pipefail
           LOG="$RUNNER_TEMP/AppLocalVoice-simulator-tests.log"
           RESULT="$RUNNER_TEMP/AppLocalVoice-simulator-tests.xcresult"
-          # macOS runners do not provide GNU timeout. The Perl alarm bounds
-          # xcodebuild itself at 20 minutes, leaving the 30-minute job timeout
-          # enough time for the always-run diagnostics and artifact steps.
-          perl -e '$SIG{ALRM}=sub { print STDERR "xcodebuild watchdog expired\\n"; exit 124 }; alarm 1200; exec @ARGV' -- \
+          # The timeout launcher owns xcodebuild's process group, so a worker
+          # stall cannot outlive the 20-minute test deadline.
+          Scripts/run-with-timeout.pl 1200 xcodebuild \
             xcodebuild test -project Testing/AppLocalVoice.xcodeproj -scheme AppLocalVoiceTests \
             -destination "platform=iOS Simulator,id=$DEVICE_ID" \
             -destination-timeout 120 \
@@ -368,7 +367,7 @@ jobs:
         shell: bash
         run: |
           set -o pipefail
-          perl -e '$SIG{ALRM}=sub { print STDERR "benchmark watchdog expired\n"; exit 124 }; alarm 1200; exec @ARGV' -- \
+          Scripts/run-with-timeout.pl 1200 benchmark \
             Scripts/run-benchmarks.sh "$RUNNER_TEMP/AppLocalVoice-benchmarks" 2>&1 | tee "$RUNNER_TEMP/AppLocalVoice-benchmarks-ci.log"
       - name: Upload benchmark regression artifacts
         if: always()
@@ -448,7 +447,7 @@ jobs:
         shell: bash
         run: |
           set -o pipefail
-          perl -e '$SIG{ALRM}=sub { print STDERR "memory sweep watchdog expired\n"; exit 124 }; alarm 1200; exec @ARGV' -- \
+          Scripts/run-with-timeout.pl 1200 memory-sweep \
             Scripts/run-memory-sweep.sh "$RUNNER_TEMP/AppLocalVoice-memory-sweep" 2>&1 | tee "$RUNNER_TEMP/AppLocalVoice-memory-sweep-ci.log"
       - name: Upload memory sweep artifacts
         if: always()
