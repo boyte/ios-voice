@@ -100,23 +100,23 @@ public struct SpeechVoice: Sendable, Equatable, Identifiable {
     }
 }
 
-/// Device capability information for on-device speech recognition.
-public struct SpeechCapabilities: Sendable, Equatable {
+/// Provider-internal capability information for on-device speech recognition.
+struct SpeechCapabilities: Sendable, Equatable {
     /// Locale that was queried.
-    public let locale: Locale
+    let locale: Locale
     /// Whether the locale is supported by the recognition stack. This can be
     /// true even when the current device cannot run the transcriber or the
     /// locale's asset is not installed.
-    public let isSupported: Bool
+    let isSupported: Bool
     /// Whether the current device can use an installed on-device model for
     /// this locale. This reflects live hardware and asset readiness, not just
     /// locale support.
-    public let supportsOnDevice: Bool
+    let supportsOnDevice: Bool
     /// Human-readable explanation when capability is unavailable.
-    public let reason: String?
+    let reason: String?
 
     /// Creates capability information.
-    public init(locale: Locale, isSupported: Bool, supportsOnDevice: Bool, reason: String? = nil) {
+    init(locale: Locale, isSupported: Bool, supportsOnDevice: Bool, reason: String? = nil) {
         self.locale = locale
         self.isSupported = isSupported
         self.supportsOnDevice = supportsOnDevice
@@ -131,15 +131,15 @@ enum SpeechAuthorization: Sendable, Equatable {
     case authorized
 }
 
-/// A complete transcript snapshot emitted during recognition.
-public struct TranscriptUpdate: Sendable, Equatable {
+/// A complete provider transcript snapshot emitted during recognition.
+struct TranscriptUpdate: Sendable, Equatable {
     /// Full current transcript text, never a delta.
-    public let text: String
+    let text: String
     /// Whether this snapshot is final for the active turn.
-    public let isFinal: Bool
+    let isFinal: Bool
 
     /// Creates a transcript snapshot.
-    public init(text: String, isFinal: Bool) {
+    init(text: String, isFinal: Bool) {
         self.text = text
         self.isFinal = isFinal
     }
@@ -189,8 +189,8 @@ struct VoiceLifecycleInterruption: Error, Sendable, Equatable {
     let reason: VoiceInterruptionReason
 }
 
-/// Event stream emitted by the serialized voice service.
-public enum VoiceEvent: Sendable, Equatable {
+/// Internal event stream emitted by the serialized voice service.
+enum VoiceEvent: Sendable, Equatable {
     /// The public lifecycle state changed.
     case stateChanged(VoiceState)
     /// A complete partial or final transcript snapshot.

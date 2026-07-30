@@ -429,7 +429,3 @@ public struct SpeechQueueEvent: Sendable, Equatable {
         return eventOrdinal == previous.eventOrdinal + 1
     }
 }
-
-/// Explicit compatibility alias for item-attempt lifecycle terminology.
-/// Every `SpeechItemEvent` carries both item and playback identity.
-public typealias SpeechItemEvent = SpeechQueueEvent

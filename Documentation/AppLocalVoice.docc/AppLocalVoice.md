@@ -20,15 +20,11 @@ import AppLocalVoice
 @MainActor
 func runVoiceTurn() async throws {
     let voice = AppLocalVoice()
-    do {
-        try await voice.startListening()
-        let text = try await voice.finishListening()
-        try await voice.speak(text)
-        await voice.close()
-    } catch {
-        await voice.close()
-        throw error
-    }
+    let session = try await voice.startSession()
+    let transcript = try await voice.finishSession(id: session.sessionID)
+    let playback = try await voice.speakImmediately(transcript.text)
+    _ = try await voice.waitForSpeechPlayback(id: playback.playbackID)
+    _ = await voice.close()
 }
 ```
 
@@ -50,8 +46,6 @@ voice audio on-device and does not use the legacy server-recognition flow.
 
 - ``AppLocalVoice``
 - ``VoiceState``
-- ``VoiceEvent``
-- ``VoiceTerminationReason``
 - ``VoiceError``
 - ``VoiceErrorCategory``
 
@@ -59,8 +53,6 @@ voice audio on-device and does not use the legacy server-recognition flow.
 
 - ``RecognitionConfiguration``
 - ``SpeechModelPolicy``
-- ``TranscriptUpdate``
-- ``SpeechCapabilities``
 
 ### Synthesis
 
@@ -76,10 +68,9 @@ provider retains or speaks it.
 
 The default package has no networking, chat client, agent protocol, persistence,
 analytics, or third-party runtime dependency. A host may send the returned text
-to any endpoint and pass the response text to ``AppLocalVoice/speak(_:configuration:)``.
+to any endpoint and pass the response text to ``AppLocalVoice/enqueueSpeech(_:priority:configuration:policy:)``.
 
-Read the repository's [compatibility contract](../Compatibility.md),
-[state machine](../StateMachine.md), [privacy boundary](../Privacy.md), and
+Read the repository's [state machine](../StateMachine.md), [privacy boundary](../Privacy.md), and
 [recovery guide](../Recovery.md) before shipping a voice surface. Providers
 remain internal test seams; privacy-safe lifecycle diagnostics are available
 only when the host explicitly supplies a `VoiceDiagnosticsSink`.

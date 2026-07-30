@@ -25,13 +25,14 @@ let locale = Locale(identifier: "vi-VN")
 do {
     let voices = await voice.availableVoices(for: locale)
     let enhanced = voices.first { $0.quality == .enhanced }
-    try await voice.speak(
+    let playback = try await voice.speakImmediately(
         "Xin chào",
         configuration: SpeechConfiguration(
             locale: locale,
             voiceIdentifier: enhanced?.id
         )
     )
+    _ = try await voice.waitForSpeechPlayback(id: playback.playbackID)
     await voice.close()
 } catch {
     await voice.close()

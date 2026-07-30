@@ -17,13 +17,13 @@ final class LocalEchoModel {
     var isPaused = false
 
     private let voice: AppLocalVoice
+    private var activeSessionID: RecognitionSessionID?
 
     init(voice: AppLocalVoice) {
         self.voice = voice
     }
 
-    /// Retires the app-owned voice service at an explicit app lifecycle
-    /// boundary. Views and child feature models must not call this.
+    /// Only the app-owned model retires the shared voice service.
     func close() async {
         if case .blocked = await voice.close() {
             error = "Voice cleanup is still pending. Try again before starting another turn."
@@ -31,107 +31,157 @@ final class LocalEchoModel {
     }
 
     func observeEvents() async {
-        await withTaskCancellationHandler(operation: {
-            // Register before any capability/catalog lookup so the first
-            // lifecycle event cannot be lost while the UI is appearing.
-            let events = await voice.events()
-            await refreshModelStatus()
-            let voices = await voice.availableVoices()
-            if voices.isEmpty {
-                voiceTip = "No Apple voices are currently available for this locale. Check Settings → Accessibility → Read & Speak → Voices."
-            } else if !voices.contains(where: { $0.quality == .enhanced || $0.quality == .premium }) {
-                voiceTip = "For a more natural voice, install an Enhanced or Premium Quality voice in Settings → Accessibility → Read & Speak → Voices."
+        let events = await voice.voiceEvents()
+        await refreshReadiness()
+        do {
+            for try await event in events {
+                try Task.checkCancellation()
+                apply(event)
             }
-            for await event in events {
-                switch event {
-                case .stateChanged(let state):
-                    status = state.label
-                    isListening = state == .listening
-                    isPreparing = state == .preparing
-                    isFinalizing = state == .finalizing
-                    isSpeaking = state == .speaking
-                    if state != .speaking { isPaused = false }
-                case .transcript(let update):
-                    transcript = update.text
-                case .failure(let failure):
-                    error = failure.localizedDescription
-                case .listeningFinished:
-                    status = "Ready to speak"
-                case .speechStarted:
-                    isPaused = false
-                case .speechFinished, .speechCancelled:
-                    isPaused = false
-                }
-            }
-        }, onCancel: {
-            Task { @MainActor in await voice.close() }
-        })
-        await voice.close()
-    }
-
-    private func refreshModelStatus() async {
-        let capabilities = await voice.capabilities()
-        if capabilities.supportsOnDevice {
-            modelStatus = "On-device speech model ready for \(capabilities.locale.identifier)."
-        } else if capabilities.isSupported {
-            modelStatus = "On-device model is not ready. Listen will ask Apple to install it when needed."
-        } else {
-            modelStatus = capabilities.reason ?? "On-device speech is unavailable for this locale."
+        } catch is CancellationError {
+            return
+        } catch {
+            self.error = error.localizedDescription
+            await reconcile()
         }
     }
 
-    func startListening() async {
-        error = nil
-        do {
-            try await voice.startListening(configuration: .init(policy: .allowModelInstallation))
-        } catch let caughtError { error = caughtError.localizedDescription }
+    private func apply(_ event: VoiceEventStreamEvent) {
+        switch event {
+        case .snapshot(let snapshot):
+            apply(snapshot)
+        case .recognition(let event):
+            guard event.sessionID == activeSessionID else { return }
+            switch event.kind {
+            case .stateChanged(let state):
+                isPreparing = state == .preparing
+                isListening = state == .listening
+                isFinalizing = state == .finalizing
+                status = state.label
+            case .transcript(.preview(let preview)):
+                transcript = preview.text
+            case .transcript(.finalTranscript(let final)):
+                transcript = final.text
+            case .outcome(.completed), .outcome(.durationLimitReached), .outcome(.cancelled),
+                 .outcome(.interrupted), .outcome(.failed):
+                activeSessionID = nil
+                isPreparing = false
+                isListening = false
+                isFinalizing = false
+                status = "Ready"
+            default:
+                break
+            }
+        case .speechQueue(let event):
+            switch event.kind {
+            case .started, .resumed:
+                isSpeaking = true
+                isPaused = false
+                status = "Speaking…"
+            case .paused:
+                isPaused = true
+            case .outcome:
+                isSpeaking = false
+                isPaused = false
+                status = "Ready"
+            case .accepted:
+                break
+            }
+        case .speechProgress, .recovery:
+            break
+        }
     }
 
-    func endListening() async {
+    private func apply(_ snapshot: VoiceRuntimeSnapshot) {
+        switch snapshot.state {
+        case .idle: status = "Ready"
+        case .preparing: status = "Preparing…"
+        case .listening: status = "Listening…"
+        case .finalizing: status = "Finalizing…"
+        case .speaking: status = "Speaking…"
+        case .failed: status = "Voice unavailable"
+        }
+        isPreparing = snapshot.state == .preparing
+        isListening = snapshot.state == .listening
+        isFinalizing = snapshot.state == .finalizing
+        isSpeaking = snapshot.state == .speaking
+        activeSessionID = snapshot.recognition?.sessionID
+    }
+
+    private func reconcile() async {
+        apply(await voice.runtimeSnapshot())
+    }
+
+    private func refreshReadiness() async {
+        let readiness = await voice.capabilitySnapshot()
+        switch readiness.recognition.modelReadiness {
+        case .installed:
+            modelStatus = "On-device speech model ready."
+        case .notInstalled(let installationAvailable):
+            modelStatus = installationAvailable
+                ? "On-device model will be installed when you choose Listen."
+                : "On-device speech model is not installed."
+        case .unavailable, .unknown:
+            modelStatus = "On-device speech is unavailable for this locale."
+        }
+        let voices = await voice.availableVoices()
+        if voices.isEmpty {
+            voiceTip = "No Apple voices are currently available for this locale."
+        }
+    }
+
+    func startRecognition() async {
         error = nil
         do {
-            transcript = try await voice.finishListening()
+            let session = try await voice.startSession(configuration: .init(
+                recognition: .init(policy: .allowModelInstallation)
+            ))
+            activeSessionID = session.sessionID
+        } catch {
+            self.error = error.localizedDescription
+        }
+    }
+
+    func finishRecognition() async {
+        guard let activeSessionID else { return }
+        error = nil
+        do {
+            transcript = try await voice.finishSession(id: activeSessionID).text
+            self.activeSessionID = nil
             status = "Ready to speak"
-        } catch let caughtError { error = caughtError.localizedDescription }
+        } catch {
+            self.error = error.localizedDescription
+        }
     }
 
-    func cancelListening() async {
-        error = nil
-        await voice.cancelListening()
+    func cancelRecognition() async {
+        guard let activeSessionID else { return }
+        await voice.cancelSession(id: activeSessionID)
+        self.activeSessionID = nil
         status = "Ready"
     }
 
-    func speak() async {
+    func speakTranscript() async {
         error = nil
-        do { try await voice.speak(transcript) }
-        catch let caughtError { error = caughtError.localizedDescription }
+        do {
+            let acceptance = try await voice.enqueueSpeech(transcript)
+            _ = try await voice.waitForSpeechPlayback(id: acceptance.playbackID)
+        } catch {
+            self.error = error.localizedDescription
+        }
     }
 
-    func pauseSpeaking() async {
-        await voice.pauseSpeaking()
-        isPaused = true
-    }
-
-    func resumeSpeaking() async {
-        await voice.resumeSpeaking()
-        isPaused = false
-    }
-
-    func stopSpeaking() async {
-        await voice.stopSpeaking()
-        isPaused = false
-    }
+    func pauseQueue() async { _ = await voice.pauseSpeechQueue() }
+    func resumeQueue() async { _ = await voice.resumeSpeechQueue() }
+    func stopQueue() async { _ = await voice.stopSpeechQueue() }
 }
 
-private extension VoiceState {
+private extension RecognitionSessionState {
     var label: String {
         switch self {
-        case .idle: "Ready"
         case .preparing: "Preparing…"
         case .listening: "Listening…"
         case .finalizing: "Finalizing…"
-        case .speaking: "Speaking…"
-        case .failed: "Voice unavailable"
         }
     }
 }

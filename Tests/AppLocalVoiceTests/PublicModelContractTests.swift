@@ -289,7 +289,6 @@ final class PublicModelContractTests: XCTestCase {
             eventOrdinal: 13,
             kind: .outcome(.finished)
         )
-        let compatibilityAlias: SpeechItemEvent = accepted
         let result = SpeechPlaybackResult(
             itemID: itemID,
             playbackID: firstPlaybackID,
@@ -297,8 +296,6 @@ final class PublicModelContractTests: XCTestCase {
             outcome: .finished
         )
 
-        XCTAssertEqual(compatibilityAlias.itemID, itemID)
-        XCTAssertEqual(compatibilityAlias.playbackID, firstPlaybackID)
         XCTAssertEqual(result.itemID, itemID)
         XCTAssertEqual(result.playbackID, firstPlaybackID)
         XCTAssertTrue(finished.immediatelyFollows(accepted))

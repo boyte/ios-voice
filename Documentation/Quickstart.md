@@ -202,12 +202,10 @@ The default recognition policy uses an installed Apple speech model. A host may
 explicitly allow model installation before a click-to-speak turn:
 
 ```swift
-let voice = AppLocalVoice()
-try await voice.startListening(
-    configuration: .init(policy: .allowModelInstallation)
-)
-await voice.cancelListening()
-await voice.close()
+let readiness = await voice.capabilitySnapshot()
+if case .notInstalled(installationAvailable: true) = readiness.recognition.modelReadiness {
+    try await voice.prepareRecognition(policy: .allowModelInstallation)
+}
 ```
 
 Model installation is separate from recognition. AppLocalVoice does not upload

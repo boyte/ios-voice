@@ -32,20 +32,20 @@ struct LocalEchoView: View {
             HStack(spacing: 12) {
                 if model.isPreparing || model.isListening || model.isFinalizing {
                     Button("End") {
-                        Task { await model.endListening() }
+                        Task { await model.finishRecognition() }
                     }
                     .buttonStyle(.borderedProminent)
                     .disabled(model.isFinalizing)
                     .accessibilityLabel("End listening")
 
                     Button("Cancel") {
-                        Task { await model.cancelListening() }
+                        Task { await model.cancelRecognition() }
                     }
                     .buttonStyle(.bordered)
                     .accessibilityLabel("Cancel listening")
                 } else {
                     Button("Listen") {
-                        Task { await model.startListening() }
+                        Task { await model.startRecognition() }
                     }
                     .buttonStyle(.borderedProminent)
                     .disabled(model.isSpeaking)
@@ -55,28 +55,28 @@ struct LocalEchoView: View {
 
             HStack(spacing: 12) {
                 Button("Speak") {
-                    Task { await model.speak() }
+                    Task { await model.speakTranscript() }
                 }
                 .buttonStyle(.bordered)
                 .disabled(model.transcript.isEmpty || model.isPreparing || model.isListening || model.isFinalizing || model.isSpeaking)
                 .accessibilityLabel("Speak transcript")
 
                 Button("Pause") {
-                    Task { await model.pauseSpeaking() }
+                    Task { await model.pauseQueue() }
                 }
                 .buttonStyle(.bordered)
                 .disabled(!model.isSpeaking || model.isPaused)
                 .accessibilityLabel("Pause speech")
 
                 Button("Resume") {
-                    Task { await model.resumeSpeaking() }
+                    Task { await model.resumeQueue() }
                 }
                 .buttonStyle(.bordered)
                 .disabled(!model.isSpeaking || !model.isPaused)
                 .accessibilityLabel("Resume speech")
 
                 Button("Stop") {
-                    Task { await model.stopSpeaking() }
+                    Task { await model.stopQueue() }
                 }
                 .buttonStyle(.bordered)
                 .disabled(!model.isSpeaking)

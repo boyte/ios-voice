@@ -225,8 +225,7 @@ host playback controls. `speechProgress` delivers advisory original-text
 UTF-16 ranges for precise highlighting; it may be coalesced, so terminal queue
 events remain authoritative.
 
-For a one-off local prompt without replay history, use `speakImmediately`; the
-compatibility `speak` API remains available for simple apps.
+For a one-off local prompt without replay history, use `speakImmediately`.
 
 ## Prepare local recognition deliberately
 
@@ -262,7 +261,6 @@ OS-dependent, so handle a failed start even after a successful preflight.
 | Model and permission readiness | `capabilitySnapshot(for:)`, `prepareRecognition(for:policy:progress:)` |
 | Queue, ordering, replay | `enqueueSpeech`, `replaySpeech`, queue controls, and `waitForSpeechPlayback` |
 | One immediate utterance | `speakImmediately` |
-| Simple/legacy integration | `startListening`, `finishListening`, `cancelListening`, `events`, and `speak` |
 | Safe retirement | cancel observer, then `close()` and retry if blocked |
 
 The session APIs are preferred for a chat composer because PTT release awaits
@@ -295,7 +293,7 @@ Host composer / message UI      Host backend and storage
   it completed, and a preview does not make it final.
 
 See [Audio lifecycle](Documentation/AudioLifecycle.md),
-[recovery](Documentation/Recovery.md), and [contract decisions](Documentation/ContractDecisions.md)
+[recovery](Documentation/Recovery.md), and the [public API contract](Documentation/PublicAPI.md)
 for the complete semantic contract.
 
 ## Reference application
@@ -307,8 +305,7 @@ chat backend or accounts. Open
 or connected device, and run the `LocalEcho` scheme. It uses a relative local
 package dependency, so it remains usable when this checkout moves.
 
-Local Echo demonstrates the older compatibility methods to keep its UI small.
-For a chat app, use the session and queue flow above.
+Local Echo demonstrates the same session and queue flow shown above.
 
 ## Build and verify this checkout
 
@@ -358,16 +355,14 @@ the [privacy boundary](Documentation/Privacy.md) and
 
 - [Quickstart](Documentation/Quickstart.md) — canonical chat wiring
 - [Public API](Documentation/PublicAPI.md) — checked API inventory
-- [Contract Decisions](Documentation/ContractDecisions.md) — lifecycle and
-  behavior semantics
 - [Diagnostics](Documentation/Diagnostics.md) — safe observability contract
 - [Troubleshooting](Documentation/Troubleshooting.md) — common integration and
   recovery failures
 - [First open-source release](Documentation/FirstOpenSourceRelease.md) —
   first-tag and publication handoff
-- [Basic speech-to-text](Documentation/AppLocalVoice.docc/BasicSpeechToText.md)
-  and [basic text-to-speech](Documentation/AppLocalVoice.docc/BasicTextToSpeech.md)
-  — compatibility-oriented walkthroughs
+- [Speech-to-text](Documentation/AppLocalVoice.docc/BasicSpeechToText.md)
+  and [text-to-speech](Documentation/AppLocalVoice.docc/BasicTextToSpeech.md)
+  — focused canonical walkthroughs
 - [Model installation](Documentation/AppLocalVoice.docc/ModelInstallation.md)
   and [recovery guide](Documentation/AppLocalVoice.docc/RecoveryGuide.md) —
   readiness and recovery details

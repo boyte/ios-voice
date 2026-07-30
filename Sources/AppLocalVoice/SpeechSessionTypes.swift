@@ -111,9 +111,6 @@ public enum RecognitionEventDeliveryLimits {
     /// Maximum number of durable events retained for each subscriber.
     public static let maximumDurableEventCountPerSubscriber = 32
 
-    /// Compatibility spelling retained for the provisional E1 model surface.
-    public static let maximumNonPreviewEventsPerSubscriber =
-        maximumDurableEventCountPerSubscriber
 }
 
 /// Host-visible authorization state for a protected speech resource.

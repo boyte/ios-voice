@@ -9,20 +9,16 @@ import AVFAudio
 /// The default implementation uses Apple's on-device speech APIs and has no
 /// runtime network dependency.
 ///
-/// A recognition turn has two explicit calls so the host controls the end of
-/// user speech:
+/// A recognition session has explicit start and finish calls so the host
+/// controls the end of user speech:
 ///
 /// ```swift
 /// let voice = AppLocalVoice()
-/// do {
-///     try await voice.startListening()
-///     let text = try await voice.finishListening()
-///     try await voice.speak(text)
-///     await voice.close()
-/// } catch {
-///     await voice.close()
-///     throw error
-/// }
+/// let session = try await voice.startSession()
+/// let transcript = try await voice.finishSession(id: session.sessionID)
+/// let playback = try await voice.speakImmediately(transcript.text)
+/// _ = try await voice.waitForSpeechPlayback(id: playback.playbackID)
+/// _ = await voice.close()
 /// ```
 ///
 /// The package deliberately does not provide a `transcribe()` method that
@@ -30,7 +26,7 @@ import AVFAudio
 /// definition of “the user has finished speaking”; automatic silence
 /// detection would make lifecycle behavior less deterministic. Apps that have
 /// their own push-to-talk, turn detector, or endpoint policy should call
-/// `startListening(configuration:)` and `finishListening()` explicitly.
+/// `startSession(configuration:)` and `finishSession(id:)` explicitly.
 @MainActor
 public final class AppLocalVoice {
     private static let maximumDiagnosticSubscribers = 8
@@ -50,11 +46,6 @@ public final class AppLocalVoice {
         let coordinator = coordinator
         Task { _ = await coordinator.closeAndReport() }
     }
-    private var listeningDiagnostic: (id: UUID, start: UInt64)?
-    private var listeningStartID: UUID?
-    private var listeningStartCancellationRequested = false
-    private var speakingDiagnostic: (id: UUID, start: UInt64)?
-    private var lifecycleEpoch: UInt64 = 0
 
     /// Creates a voice service with Apple's local speech providers.
     ///
@@ -105,38 +96,8 @@ public final class AppLocalVoice {
         )
     }
 
-    /// Returns a stream of transcript, state, speech, and failure events.
-    ///
-    /// Subscribe before starting a turn. The stream remains valid until the
-    /// consumer cancels iteration. Hosts must cancel stream iteration before
-    /// releasing the service; deallocation is not an asynchronous lifecycle
-    /// cleanup guarantee.
-    /// Events are snapshots and are delivered by the serialized lifecycle;
-    /// they do not contain audio or network data. A provider may mark a
-    /// transcript snapshot final before the host calls `finishListening()`;
-    /// the listening terminal event and returned string remain authoritative
-    /// for the end of the turn. The stream has a bounded newest-value buffer:
-    /// a stalled consumer may miss intermediate transcript snapshots, while
-    /// the final snapshot and terminal lifecycle events are retained by the
-    /// documented buffer contract. At most eight event subscriptions are
-    /// retained; creating another subscription finishes the oldest one.
-    public func events() async -> AsyncStream<VoiceEvent> { await coordinator.events() }
-
-    /// Returns the additive recognition-session event stream.
-    ///
-    /// Every admitted session begins with `.accepted` at ordinal zero. The
-    /// ninth process-wide observer fails with
-    /// `VoiceError.eventSubscriberLimitReached(maximum:active:)`. An admitted
-    /// stream that falls behind its 32-event durable buffer terminates with
-    /// `VoiceError.eventDeliveryOverflow(capacity:firstUndelivered:)`. Preview
-    /// and state snapshots use separate coalesced slots.
-    public func recognitionEvents() async -> AsyncThrowingStream<RecognitionEvent, Error> {
-        await coordinator.recognitionEvents()
-    }
-
     /// Returns the canonical backend-agnostic stream for recognition, speech
-    /// queue/playback, and process recovery events. The legacy `events()` and
-    /// additive `recognitionEvents()` projections remain available.
+    /// queue/playback, and process recovery events.
     public func voiceEvents() async -> VoiceEventStream {
         await coordinator.voiceEvents()
     }
@@ -151,11 +112,6 @@ public final class AppLocalVoice {
     /// Returns finite current voice state for UI reconciliation after an event gap.
     public func runtimeSnapshot() async -> VoiceRuntimeSnapshot {
         await coordinator.runtimeSnapshot()
-    }
-
-    /// Reports whether the requested locale can use Apple's on-device recognizer.
-    public func capabilities(for locale: Locale = .current) async -> SpeechCapabilities {
-        await coordinator.capabilities(for: locale)
     }
 
     /// Returns the side-effect-free readiness snapshot for a locale.
@@ -214,80 +170,33 @@ public final class AppLocalVoice {
         await coordinator.availableVoices(for: locale)
     }
 
-    /// Requests permission and starts a new microphone recognition turn.
-    ///
-    /// The operation remains active until `finishListening()`,
-    /// `cancelListening()`, interruption, or failure. Starting another
-    /// operation before the current one reaches a terminal state throws
-    /// `VoiceError.invalidState`.
-    public func startListening(configuration: RecognitionConfiguration = .init()) async throws {
-        // Reserve the facade's startup slot before the first await. The
-        // coordinator remains the lifecycle authority, but this synchronous
-        // guard ensures a second main-actor caller cannot win the diagnostic
-        // race while the first provider startup is still suspended.
-        guard listeningStartID == nil else {
-            throw VoiceError.invalidState("A voice operation is already active.")
-        }
-        let operationID = UUID()
-        let start = Self.monotonicNanoseconds
-        let operationEpoch = lifecycleEpoch
-        let ownsStartMarker = true
-        listeningStartID = operationID
-        do {
-            try await coordinator.startListening(configuration: configuration)
-            let startedState = await coordinator.state
-            guard ownsStartMarker,
-                  listeningStartID == operationID,
-                  !listeningStartCancellationRequested,
-                  operationEpoch == lifecycleEpoch,
-                  startedState == .listening else {
-                // Leave the cancellation marker for the catch path to consume;
-                // clearing it here would make the provider's cancellation
-                // cleanup error look like an unrelated startup failure.
-                await coordinator.cancelListening()
-                throw VoiceError.cancelled
-            }
-            listeningStartID = nil
-            listeningDiagnostic = (operationID, start)
-            emit(
-                operationID: operationID,
-                operation: .listening,
-                phase: .started,
-                state: startedState,
-                durationNanoseconds: Self.elapsed(since: start)
-            )
-        } catch {
-            let startupCancellationWasRequested = ownsStartMarker &&
-                (listeningStartCancellationRequested || listeningStartID != operationID)
-            if ownsStartMarker, listeningStartID == operationID {
-                listeningStartID = nil
-                listeningStartCancellationRequested = false
-            }
-            let wasCancelled = startupCancellationWasRequested ||
-                error is CancellationError ||
-                (error as? VoiceError) == .cancelled
-            if ownsStartMarker {
-                emit(
-                    operationID: operationID,
-                    operation: .listening,
-                    phase: wasCancelled ? .cancelled : .failed,
-                    state: await coordinator.state,
-                    error: error,
-                    errorCategory: wasCancelled ? .cancelled : nil,
-                    durationNanoseconds: Self.elapsed(since: start)
-                )
-            }
-            throw error
-        }
+    // Internal seams retain deterministic provider coverage while the public
+    // package exposes only the identified session and playback APIs.
+    func events() async -> AsyncStream<VoiceEvent> { await coordinator.events() }
+    func recognitionEvents() async -> AsyncThrowingStream<RecognitionEvent, Error> {
+        await coordinator.recognitionEvents()
     }
+    func capabilities(for locale: Locale = .current) async -> SpeechCapabilities {
+        await coordinator.capabilities(for: locale)
+    }
+    func startListening(configuration: RecognitionConfiguration = .init()) async throws {
+        try await coordinator.startListening(configuration: configuration)
+    }
+    func finishListening() async throws -> String { try await coordinator.endListening() }
+    func cancelListening() async { await coordinator.cancelListening() }
+    func speak(_ text: String, configuration: SpeechConfiguration = .init()) async throws {
+        try await coordinator.speak(text, configuration: configuration)
+    }
+    func pauseSpeaking() async { await coordinator.pauseSpeaking() }
+    func resumeSpeaking() async { await coordinator.resumeSpeaking() }
+    func stopSpeaking() async { _ = await coordinator.stopSpeaking() }
 
     /// Admits a host-identified recognition session without waiting for Apple
     /// provider preparation to finish.
     ///
     /// Pre-admission rejection throws without creating a session identity.
     /// Once returned, startup failures are delivered as a typed terminal event
-    /// for the accepted session. The legacy `startListening` call continues to
-    /// await provider startup and throw its startup error.
+    /// for the accepted session.
     public func startSession(
         configuration: RecognitionSessionConfiguration = .init()
     ) async throws -> RecognitionSessionAcceptance {
@@ -329,44 +238,6 @@ public final class AppLocalVoice {
         }
     }
 
-    /// Stops microphone capture, finalizes the current turn, and returns the
-    /// final transcript snapshot.
-    public func finishListening() async throws -> String {
-        // A canonical session may be finalized through this compatibility call.
-        // Its coordinator-owned diagnostic already has the session UUID and
-        // terminal truth; do not fabricate a second, uncorrelated operation.
-        guard let record = listeningDiagnostic else {
-            return try await coordinator.endListening()
-        }
-        let stateBeforeFinish = await coordinator.state
-        let ownsActiveTurn = stateBeforeFinish == .listening || stateBeforeFinish == .finalizing
-        do {
-            let text = try await coordinator.endListening()
-            listeningDiagnostic = nil
-            emit(
-                operationID: record.0,
-                operation: .listening,
-                phase: .completed,
-                state: await coordinator.state,
-                durationNanoseconds: Self.elapsed(since: record.1)
-            )
-            return text
-        } catch {
-            listeningDiagnostic = nil
-            if ownsActiveTurn {
-                emit(
-                    operationID: record.0,
-                    operation: .listening,
-                    phase: .failed,
-                    state: await coordinator.state,
-                    error: error,
-                    durationNanoseconds: Self.elapsed(since: record.1)
-                )
-            }
-            throw error
-        }
-    }
-
     /// Finalizes only the matching active recognition session.
     ///
     /// A stale or unknown identity is rejected before provider state changes.
@@ -374,137 +245,10 @@ public final class AppLocalVoice {
         try await coordinator.endSession(id: id)
     }
 
-    /// Cancels microphone capture without returning a final transcript.
-    /// Repeated calls are safe.
-    public func cancelListening() async {
-        guard let record = listeningDiagnostic else {
-            if listeningStartID != nil {
-                listeningStartCancellationRequested = true
-            }
-            await coordinator.cancelListening()
-            return
-        }
-        let currentState = await coordinator.state
-        guard currentState == .listening || currentState == .finalizing else {
-            // The provider may have already ended this generation because of
-            // an interruption, route change, background transition, or
-            // failure. Do not manufacture a second cancellation diagnostic.
-            listeningDiagnostic = nil
-            return
-        }
-        await coordinator.cancelListening()
-        listeningDiagnostic = nil
-        let stateAfterCancellation = await coordinator.state
-        if stateAfterCancellation == .failed {
-            emit(
-                operationID: record.id,
-                operation: .listening,
-                phase: .failed,
-                state: stateAfterCancellation,
-                errorCategory: .audioSessionUnavailable,
-                durationNanoseconds: Self.elapsed(since: record.start)
-            )
-            return
-        }
-        emit(
-            operationID: record.id,
-            operation: .listening,
-            phase: .cancelled,
-            state: stateAfterCancellation,
-            errorCategory: .cancelled,
-            durationNanoseconds: Self.elapsed(since: record.start)
-        )
-    }
-
     /// Cancels only the matching active recognition session. A stale identity
     /// is an idempotent no-op and cannot cancel a later generation.
     public func cancelSession(id: RecognitionSessionID) async {
         await coordinator.cancelSession(id: id)
-    }
-
-    /// Speaks text using an installed Apple voice.
-    ///
-    /// Long text is split into bounded utterances by the provider. The call
-    /// completes after playback finishes or throws a typed `VoiceError`.
-    /// Empty and whitespace-only text are intentional no-ops and emit no
-    /// speech lifecycle events.
-    public func speak(_ text: String, configuration: SpeechConfiguration = .init()) async throws {
-        let normalized = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !normalized.isEmpty else { return }
-        guard normalized.utf16.count <= VoiceTextLimits.maximumUTF16Length else {
-            throw VoiceError.textTooLong(maximumUTF16Length: VoiceTextLimits.maximumUTF16Length)
-        }
-        // `isAvailableForNewOperation()` is an async coordinator check. Keep
-        // a synchronous facade reservation as well so concurrent main-actor
-        // callers cannot both pass that check and leave diagnostics owned by
-        // the losing task.
-        guard speakingDiagnostic == nil else {
-            throw VoiceError.invalidState("A voice operation is already active.")
-        }
-        let operationID = UUID()
-        let start = Self.monotonicNanoseconds
-        let operationEpoch = lifecycleEpoch
-        let admissionEpoch = await coordinator.currentAdmissionEpoch()
-        try Task.checkCancellation()
-        // Reserve the facade diagnostic synchronously before the first await.
-        // A second main-actor caller can therefore never overwrite the first
-        // operation's record while the coordinator is reserving its token.
-        let ownsOperationStart = true
-        speakingDiagnostic = (operationID, start)
-        do {
-            if let preAdmissionError = await coordinator.preAdmissionErrorForNewOperation() {
-                if ownsOperationStart, speakingDiagnostic?.id == operationID {
-                    speakingDiagnostic = nil
-                }
-                throw preAdmissionError
-            }
-            try Task.checkCancellation()
-            guard operationEpoch == lifecycleEpoch else { throw VoiceError.cancelled }
-            let startedState = await coordinator.state
-            try Task.checkCancellation()
-            guard ownsOperationStart,
-                  speakingDiagnostic?.id == operationID,
-                  operationEpoch == lifecycleEpoch else {
-                throw VoiceError.cancelled
-            }
-            if ownsOperationStart {
-                emit(
-                    operationID: operationID,
-                    operation: .speaking,
-                    phase: .started,
-                    state: startedState,
-                    durationNanoseconds: 0
-                )
-            }
-            try await coordinator.speak(
-                normalized,
-                configuration: configuration,
-                admissionEpoch: admissionEpoch
-            )
-            if ownsOperationStart, speakingDiagnostic?.id == operationID {
-                speakingDiagnostic = nil
-                emit(
-                    operationID: operationID,
-                    operation: .speaking,
-                    phase: .completed,
-                    state: await coordinator.state,
-                    durationNanoseconds: Self.elapsed(since: start)
-                )
-            }
-        } catch {
-            if ownsOperationStart, speakingDiagnostic?.id == operationID {
-                speakingDiagnostic = nil
-                emit(
-                    operationID: operationID,
-                    operation: .speaking,
-                    phase: error is VoiceError && (error as? VoiceError) == .cancelled ? .cancelled : .failed,
-                    state: await coordinator.state,
-                    error: error,
-                    durationNanoseconds: Self.elapsed(since: start)
-                )
-            }
-            throw error
-        }
     }
 
     /// Accepts an identified immediate speech attempt without retaining it for
@@ -571,7 +315,7 @@ public final class AppLocalVoice {
     }
 
     /// Stops active queued playback, terminalizes all pending queued attempts,
-    /// and leaves the queue suspended. Direct `speak` calls are unaffected.
+    /// and leaves the queue suspended. Immediate playback is unaffected.
     @discardableResult
     public func stopAndClearSpeechQueue() async -> [SpeechPlaybackResult] {
         await coordinator.stopAndClearSpeechQueue()
@@ -589,64 +333,6 @@ public final class AppLocalVoice {
         await coordinator.clearPendingSpeechQueue()
     }
 
-    /// Pauses the active speech synthesis request, if any.
-    ///
-    /// This is an idempotent no-op when synthesis is inactive.
-    public func pauseSpeaking() async { await coordinator.pauseSpeaking() }
-
-    /// Resumes a paused speech synthesis request, if any.
-    ///
-    /// This is an idempotent no-op when synthesis is inactive or not paused.
-    public func resumeSpeaking() async { await coordinator.resumeSpeaking() }
-
-    /// Stops speech synthesis and releases its audio resources.
-    public func stopSpeaking() async {
-        guard let record = speakingDiagnostic else {
-            await coordinator.stopSpeaking()
-            return
-        }
-        let currentState = await coordinator.state
-        guard currentState == .speaking || currentState == .failed else {
-            // The request may still be in coordinator preflight while the
-            // public state is idle. Invalidate that admission and publish the
-            // one cancellation diagnostic here instead of allowing speech to
-            // begin after stop returns.
-            lifecycleEpoch &+= 1
-            speakingDiagnostic = nil
-            emit(
-                operationID: record.id,
-                operation: .speaking,
-                phase: .cancelled,
-                state: currentState,
-                errorCategory: .cancelled,
-                durationNanoseconds: Self.elapsed(since: record.start)
-            )
-            return
-        }
-        let stopped = await coordinator.stopSpeaking()
-        guard speakingDiagnostic?.id == record.id else { return }
-        speakingDiagnostic = nil
-        guard stopped else {
-            emit(
-                operationID: record.id,
-                operation: .speaking,
-                phase: .failed,
-                state: await coordinator.state,
-                errorCategory: .speechSynthesisUnavailable,
-                durationNanoseconds: Self.elapsed(since: record.start)
-            )
-            return
-        }
-        emit(
-            operationID: record.id,
-            operation: .speaking,
-            phase: .cancelled,
-            state: await coordinator.state,
-            errorCategory: .cancelled,
-            durationNanoseconds: Self.elapsed(since: record.start)
-        )
-    }
-
     /// Idempotently cancels active work and releases audio resources.
     ///
     /// Returns typed cleanup truth. `.released` means all resources owned by
@@ -657,10 +343,6 @@ public final class AppLocalVoice {
     public func close() async -> CleanupResult {
         let closeID = UUID()
         let closeStart = Self.monotonicNanoseconds
-        lifecycleEpoch &+= 1
-        if listeningStartID != nil {
-            listeningStartCancellationRequested = true
-        }
         emit(
             operationID: closeID,
             operation: .close,
@@ -668,59 +350,8 @@ public final class AppLocalVoice {
             state: await coordinator.state,
             durationNanoseconds: 0
         )
-        let stateBeforeClose = await coordinator.state
-        let listening = (stateBeforeClose == .listening || stateBeforeClose == .finalizing)
-            ? listeningDiagnostic
-            : nil
-        // A speech request may still be in facade/coordinator preflight while
-        // the coordinator state is idle. Capture its marker so close owns the
-        // cancellation diagnostic instead of letting the stale request start
-        // after the close boundary.
-        let speaking = speakingDiagnostic
         let closed = await coordinator.closeAndReport()
         let finalState = await coordinator.state
-        if closed, listeningStartID != nil {
-            // The coordinator has observed a terminal close boundary. A
-            // cancelled startup task may still be unwinding its facade frame;
-            // do not let that stale frame block a new start after close.
-            listeningStartID = nil
-            listeningStartCancellationRequested = false
-        }
-        if let listening, listeningDiagnostic?.id == listening.id {
-            listeningDiagnostic = nil
-            emit(
-                operationID: listening.id,
-                operation: .listening,
-                phase: closed ? .cancelled : .failed,
-                state: finalState,
-                errorCategory: closed ? .cancelled : .audioSessionUnavailable,
-                durationNanoseconds: Self.elapsed(since: listening.start)
-            )
-        }
-        if let speaking, speakingDiagnostic?.id == speaking.id {
-            speakingDiagnostic = nil
-            emit(
-                operationID: speaking.id,
-                operation: .speaking,
-                phase: closed ? .cancelled : .failed,
-                state: finalState,
-                errorCategory: closed ? .cancelled : .speechSynthesisUnavailable,
-                durationNanoseconds: Self.elapsed(since: speaking.start)
-            )
-        }
-        // Provider callbacks can finish a generation without a facade method
-        // being called (for example, an interruption can end the transcript
-        // stream). In that case the coordinator has already emitted the
-        // operation's terminal event; do not manufacture a second diagnostic,
-        // but do discard the facade's stale timing marker at the lifecycle
-        // boundary.
-        if listening == nil, listeningDiagnostic != nil,
-           finalState != .listening, finalState != .preparing, finalState != .finalizing {
-            listeningDiagnostic = nil
-        }
-        if speaking == nil, speakingDiagnostic != nil, finalState != .speaking {
-            speakingDiagnostic = nil
-        }
         emit(
             operationID: closeID,
             operation: .close,
@@ -739,8 +370,7 @@ public final class AppLocalVoice {
         return .blocked(failure)
     }
 
-    /// The current serialized lifecycle state.
-    public var state: VoiceState { get async { await coordinator.state } }
+    var state: VoiceState { get async { await coordinator.state } }
 
     private static var monotonicNanoseconds: UInt64 { DispatchTime.now().uptimeNanoseconds }
 
