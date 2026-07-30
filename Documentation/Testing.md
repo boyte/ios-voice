@@ -136,10 +136,15 @@ xcodebuild test -project Testing/AppLocalVoice.xcodeproj -scheme AppLocalVoiceTe
 xcrun simctl shutdown 'iPhone 17 Pro'
 ```
 
-The CI workflow follows the same ownership protocol: one workflow run per
-ref, one isolated simulator-test job per supported form factor, one XCTest
-worker, a 30-minute job bound, and an always-run diagnostics/upload path.
-Normal hosted CI lets `xcodebuild` resolve and boot its fresh runner device
+The **Test** workflow keeps its simulator matrix as manual evidence: use
+**Actions → Test → Run workflow** when simulator XCTest evidence is wanted.
+The two form factors run in isolated jobs with one XCTest worker, a 30-minute
+job bound, and always-run diagnostics/uploads. Push and pull-request CI does
+not run this matrix; it continues to validate the package, documentation,
+public API, benchmarks, and memory sweep. This prevents a GitHub-hosted
+CoreSimulator service stall from blocking ordinary changes.
+
+The manual workflow lets `xcodebuild` resolve and boot its fresh runner device
 through its bounded destination timeout, rather than running an unbounded
 preflight `simctl` command. The tag workflow retains two separately erased
 simulator passes. These controls do not repair Xcode or CoreSimulator; they

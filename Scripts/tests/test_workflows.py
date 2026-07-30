@@ -11,6 +11,8 @@ class WorkflowContractTests(unittest.TestCase):
 
     def test_ci_covers_both_supported_simulator_form_factors(self) -> None:
         text = self.read("test.yml")
+        self.assertIn("workflow_dispatch:", text)
+        self.assertIn("if: github.event_name == 'workflow_dispatch'", text)
         self.assertIn("id: iphone-17-pro", text)
         self.assertIn("id: ipad-pro-11-m5", text)
         self.assertIn("name: iPhone 17 Pro", text)
@@ -104,6 +106,13 @@ class WorkflowContractTests(unittest.TestCase):
         self.assertNotIn("- name: Reset and boot simulator", text)
         self.assertIn('xcrun simctl shutdown "$DEVICE_ID" || true', text)
         self.assertIn('xcrun simctl erase "$DEVICE_ID" || true', text)
+
+    def test_automatic_ci_does_not_run_the_simulator_matrix(self) -> None:
+        text = self.read("test.yml")
+        simulator_start = text.index("  simulator-tests:\n")
+        benchmark_start = text.index("  benchmarks:\n", simulator_start)
+        simulator_job = text[simulator_start:benchmark_start]
+        self.assertIn("if: github.event_name == 'workflow_dispatch'", simulator_job)
 
     def test_external_actions_are_immutable_commit_pins(self) -> None:
         for path in (ROOT / ".github" / "workflows").glob("*.yml"):

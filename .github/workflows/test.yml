@@ -4,6 +4,11 @@ on:
   push:
     branches: [main]
   pull_request:
+  # XCTest needs a healthy CoreSimulator service, which GitHub-hosted macOS
+  # runners cannot currently provide reliably. Keep the deterministic matrix
+  # available as an explicit evidence run without making ordinary source
+  # changes wait on an unrelated runner-service stall.
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -144,6 +149,9 @@ jobs:
           if-no-files-found: error
 
   simulator-tests:
+    # This matrix is deliberate/manual evidence. Push and pull-request CI
+    # still validates the package, docs, API, benchmarks, and memory sweep.
+    if: github.event_name == 'workflow_dispatch'
     runs-on: macos-15
     timeout-minutes: 30
     strategy:
