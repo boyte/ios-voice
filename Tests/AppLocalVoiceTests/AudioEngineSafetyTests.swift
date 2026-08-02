@@ -186,7 +186,9 @@ private func makeRingBuffer(
     frameLength: AVAudioFrameCount,
     value: Float
 ) -> AVAudioPCMBuffer {
-    let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: frameLength)!
+    guard let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: frameLength) else {
+        preconditionFailure("The validated test PCM format must allocate a buffer")
+    }
     buffer.frameLength = frameLength
     if let channels = buffer.floatChannelData {
         for channel in 0..<Int(format.channelCount) {

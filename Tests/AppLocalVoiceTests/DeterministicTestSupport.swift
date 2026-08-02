@@ -179,7 +179,10 @@ actor ControlledSpeechInput: SpeechInput {
         }
         isActive = true
         await ledger.acquire(.microphone)
-        if failure?.stage == .sessionActivation { await releaseCapture() ; throw failure! }
+        if let failure, failure.stage == .sessionActivation {
+            await releaseCapture()
+            throw failure
+        }
 
         return AsyncThrowingStream { continuation in
             self.continuation = continuation
@@ -194,7 +197,7 @@ actor ControlledSpeechInput: SpeechInput {
 
     func stop() async throws -> String {
         stops += 1
-        if failure?.stage == .finalization { throw failure! }
+        if let failure, failure.stage == .finalization { throw failure }
         await releaseCapture()
         continuation?.finish()
         continuation = nil

@@ -5,6 +5,8 @@ import Foundation
 /// The lease is intentionally independent of `AVAudioSession` role leases: one
 /// facade keeps this lease across idle periods so another facade cannot create
 /// a competing recognition, synthesis, or future queue owner.
+/// SAFETY: `lock` protects the sole mutable field for every read and write, and
+/// no callback or suspension occurs while the lock is held.
 final class ProcessVoiceRuntimeLease: @unchecked Sendable {
     enum Acquisition: Sendable, Equatable {
         case acquired

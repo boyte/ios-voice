@@ -88,6 +88,10 @@ final class AppleSpeechOutput: NSObject, SpeechOutput {
     private let notificationCenter: any AudioNotificationCenter
     private let watchdogSleep: @Sendable (Duration) async throws -> Void
     private let voiceResolver: @MainActor (SpeechConfiguration) throws -> AVSpeechSynthesisVoice?
+    /// SAFETY: this container never escapes `AppleSpeechOutput`. Tokens are
+    /// written only on the main actor, and notification closures capture the
+    /// output weakly. Nonisolated deinit is the only off-actor reader and cannot
+    /// race main-actor work because any such work would still retain the output.
     private final class ObserverTokens: @unchecked Sendable {
         var interruption: NSObjectProtocol?
         var route: NSObjectProtocol?

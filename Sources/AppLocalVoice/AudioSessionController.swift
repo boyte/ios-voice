@@ -118,7 +118,7 @@ extension AudioSessionDriver {
 }
 
 /// Production driver for the process-wide shared audio session.
-final class AVAudioSessionDriver: @unchecked Sendable, AudioSessionDriver {
+final class AVAudioSessionDriver: AudioSessionDriver {
     private let session: AVAudioSession
 
     init(session: AVAudioSession = .sharedInstance()) {
@@ -245,6 +245,10 @@ final class AVAudioSessionDriver: @unchecked Sendable, AudioSessionDriver {
 /// Each `AudioSessionController` is a lightweight handle. All default handles
 /// use this broker, so two independent AppLocalVoice facades cannot deactivate
 /// or restore the shared session while the other one still owns a lease.
+/// SAFETY: `lock` serializes every access to broker state and every call to the
+/// process-wide driver. No operation suspends while holding it. The recursive
+/// lock permits synchronous read-only AVAudioSession re-entry, while
+/// `transitionInFlight` rejects a nested state-changing transition.
 final class AudioSessionBroker: @unchecked Sendable {
     static let shared = AudioSessionBroker(driver: AVAudioSessionDriver())
 

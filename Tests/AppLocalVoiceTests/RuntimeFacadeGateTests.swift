@@ -497,8 +497,13 @@ final class RuntimeFacadeGateTests: XCTestCase {
             runtimeLease: runtimeLease
         )
 
-        _ = try await owner!.startSession()
-        await waitForGateFacadeState(.listening, voice: owner!)
+        if let owner {
+            _ = try await owner.startSession()
+            await waitForGateFacadeState(.listening, voice: owner)
+        } else {
+            XCTFail("expected the active owner facade")
+            return
+        }
         owner = nil
 
         let deadline = ContinuousClock().now.advanced(by: .seconds(3))
@@ -589,6 +594,8 @@ private func waitForGateFacadeState(
     }
 }
 
+/// SAFETY: `lock` protects the clock value, sleeper table, and registration
+/// waiters. Continuations are removed while locked and resumed after unlocking.
 private final class ManualStableTranscriptClock: StableTranscriptClock, @unchecked Sendable {
     private struct Sleeper {
         let deadline: Duration

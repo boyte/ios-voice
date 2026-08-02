@@ -712,6 +712,9 @@ private func makePreparationRuntime(
     )
 }
 
+/// SAFETY: `condition` protects every counter read and write. The async waiter
+/// polls only lock-protected snapshots and never holds the condition across a
+/// suspension.
 private final class AssetRuntimeRecorder: @unchecked Sendable {
     struct Snapshot {
         let statusReads: Int
@@ -853,18 +856,29 @@ private func sourceSlice(_ source: String, from start: String, to end: String) t
     return source[startRange.lowerBound..<endRange.lowerBound]
 }
 
+/// SAFETY: `lock` protects every counter and recorded-name access. No callback
+/// is stored or invoked by this counting-only fake.
 private final class RecordingAudioNotificationCenter: @unchecked Sendable, AudioNotificationCenter {
-    private(set) var names: [Notification.Name?] = []
-    private(set) var addCount = 0
-    private(set) var removeCount = 0
+    private let lock = NSLock()
+    private var recordedNames: [Notification.Name?] = []
+    private var recordedAddCount = 0
+    private var recordedRemoveCount = 0
+
+    var names: [Notification.Name?] { lock.withLock { recordedNames } }
+    var addCount: Int { lock.withLock { recordedAddCount } }
+    var removeCount: Int { lock.withLock { recordedRemoveCount } }
 
     func addObserver(forName name: Notification.Name?, object: Any?, queue: OperationQueue?, using block: @escaping @Sendable (Notification) -> Void) -> NSObjectProtocol {
-        addCount += 1
-        names.append(name)
+        lock.withLock {
+            recordedAddCount += 1
+            recordedNames.append(name)
+        }
         return NSObject()
     }
 
-    func removeObserver(_ observer: Any) { removeCount += 1 }
+    func removeObserver(_ observer: Any) {
+        lock.withLock { recordedRemoveCount += 1 }
+    }
 }
 
 private final class RecordingInputSafety: AudioEngineSafety {
@@ -879,7 +893,7 @@ private final class RecordingInputSafety: AudioEngineSafety {
 
 private enum TestAnalyzerFailure: Error, Equatable { case failed }
 
-private final class FailingSpeechAnalyzerDriver: @unchecked Sendable, SpeechAnalyzerDriver {
+private final class FailingSpeechAnalyzerDriver: SpeechAnalyzerDriver {
     let error: TestAnalyzerFailure
     init(error: TestAnalyzerFailure) { self.error = error }
 
@@ -889,6 +903,8 @@ private final class FailingSpeechAnalyzerDriver: @unchecked Sendable, SpeechAnal
     func cancelAndFinishNow() async {}
 }
 
+/// SAFETY: `lock` protects the complete call log for every read and append, and
+/// the fake never invokes external code while holding it.
 private final class RecordingSpeechAnalyzerFinalizationDriver: @unchecked Sendable, SpeechAnalyzerDriver {
     enum Call: Equatable {
         case throughSample(CMTime)
@@ -938,6 +954,8 @@ private actor AnalysisWorkerStartGate {
     }
 }
 
+/// SAFETY: `lock` protects every counter transaction and snapshot. No callback
+/// or suspension occurs while the lock is held.
 private final class AnalysisWorkerRecorder: @unchecked Sendable {
     struct Snapshot {
         let started: Int

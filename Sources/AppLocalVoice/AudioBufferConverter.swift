@@ -36,11 +36,16 @@ final class LocalAnalyzerInputConverter {
         }
     }
 
+    /// SAFETY: `AVAudioConverter.convert` invokes its input block synchronously.
+    /// The actor-confined caller owns the buffer for that complete invocation,
+    /// and neither this wrapper nor the block mutates it.
     private final class SendableBuffer: @unchecked Sendable {
         let value: AVAudioPCMBuffer
         init(_ value: AVAudioPCMBuffer) { self.value = value }
     }
 
+    /// SAFETY: this state is created for one synchronous converter invocation
+    /// and is touched only by that invocation's non-escaping input block.
     private final class ConversionState: @unchecked Sendable {
         var supplied = false
     }
@@ -202,10 +207,14 @@ final class LocalAnalyzerInputConverter {
 /// actor; a mutable AVAudioPCMBuffer never does. A single pump task drains the
 /// ring off the realtime callback, so the callback creates no Task and no
 /// per-frame Swift object.
+/// SAFETY: the lock protects every slot-state transition and all shared ring
+/// counters. A producer owns a `.writing` slot exclusively until publishing it
+/// as `.ready`; a consumer owns a `.reading` slot until `Frame.release()`. Raw
+/// storage is copied only inside those ownership windows and is never exposed.
 final class AudioFrameRing: @unchecked Sendable {
     private static let maximumTotalStorageBytes = 16 * 1024 * 1024
 
-    struct Frame: @unchecked Sendable {
+    struct Frame: Sendable {
         fileprivate let ring: AudioFrameRing
         fileprivate let slotIndex: Int
         let sampleTime: AVAudioFramePosition

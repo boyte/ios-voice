@@ -15,6 +15,8 @@ enum BoundedTestError: Error, CustomStringConvertible {
 /// Runs one asynchronous test operation with a hard upper bound. The timeout
 /// task is cancelled when the operation wins, and the operation is cancelled
 /// when the timeout wins, so a bad provider fake cannot keep the test alive.
+/// SAFETY: `lock` protects the winner flag, waiter, and child-task handles.
+/// Child cancellation and continuation resumption occur only after unlocking.
 private final class BoundedTimeoutRace<T: Sendable>: @unchecked Sendable {
     private let lock = NSLock()
     private let duration: Duration

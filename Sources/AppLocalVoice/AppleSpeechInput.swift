@@ -58,7 +58,7 @@ protocol AudioNotificationCenter: AnyObject, Sendable {
     func removeObserver(_ observer: Any)
 }
 
-final class DefaultAudioNotificationCenter: @unchecked Sendable, AudioNotificationCenter {
+final class DefaultAudioNotificationCenter: AudioNotificationCenter {
     private let center: NotificationCenter
 
     init(center: NotificationCenter = .default) { self.center = center }
@@ -80,7 +80,7 @@ protocol SpeechAnalyzerDriver: AnyObject, Sendable {
     func cancelAndFinishNow() async
 }
 
-final class DefaultSpeechAnalyzerDriver: @unchecked Sendable, SpeechAnalyzerDriver {
+final class DefaultSpeechAnalyzerDriver: SpeechAnalyzerDriver {
     private let analyzer: SpeechAnalyzer
 
     init(_ analyzer: SpeechAnalyzer) { self.analyzer = analyzer }
@@ -390,6 +390,8 @@ func releaseModelReservationIfResultDidNotPublish(
     await release()
 }
 
+/// SAFETY: `lock` protects the one-shot result and waiter. The continuation is
+/// removed while locked and resumed only after unlocking.
 final class ModelInstallationResultGate: @unchecked Sendable {
     private let lock = NSLock()
     private var result: Result<Void, Error>?
@@ -480,6 +482,10 @@ actor AppleSpeechInput: SpeechInput {
         "The microphone audio session could not be restored; retry close() before starting another turn."
     )
 
+    /// SAFETY: this container never escapes `AppleSpeechInput`. Tokens are
+    /// written only on the actor, and notification closures capture the actor
+    /// weakly. Nonisolated deinit is the only off-actor reader and cannot race
+    /// actor work because any such work would still retain the actor.
     private final class ObserverTokens: @unchecked Sendable {
         var interruption: NSObjectProtocol?
         var route: NSObjectProtocol?
@@ -488,6 +494,8 @@ actor AppleSpeechInput: SpeechInput {
         var mediaServicesReset: NSObjectProtocol?
     }
 
+    /// SAFETY: `lock` protects the one-shot result and waiter. The continuation
+    /// is removed while locked and resumed only after unlocking.
     private final class CompletionGate: @unchecked Sendable {
         private let lock = NSLock()
         private var result: Bool?
@@ -520,6 +528,8 @@ actor AppleSpeechInput: SpeechInput {
         }
     }
 
+    /// SAFETY: `lock` protects the one-shot result and waiter. The continuation
+    /// is removed while locked and resumed only after unlocking.
     private final class InstallRequestGate: @unchecked Sendable {
         private let lock = NSLock()
         private var result: Result<RecognitionAssetInstallationRequest?, Error>?

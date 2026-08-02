@@ -215,9 +215,12 @@ struct TranscriptAssembler {
             // while some locales include it. Add exactly one only when neither
             // side already supplies whitespace and the next fragment is not
             // punctuation that belongs directly to the previous word.
-            let needsSeparator = !result.last!.isWhitespace &&
-                !part.first!.isWhitespace &&
-                !isLeadingPunctuation(part.first!)
+            guard let resultLast = result.last, let partFirst = part.first else {
+                return nil
+            }
+            let needsSeparator = !resultLast.isWhitespace &&
+                !partFirst.isWhitespace &&
+                !isLeadingPunctuation(partFirst)
             let separator = needsSeparator ? " " : ""
             let additionalUTF16Length = separator.utf16.count + part.utf16.count
             guard resultUTF16Length <= maximumUTF16Length - additionalUTF16Length else {

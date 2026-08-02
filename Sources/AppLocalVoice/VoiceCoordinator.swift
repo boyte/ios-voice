@@ -2450,6 +2450,8 @@ actor VoiceCoordinator {
 
 /// A cancellation-aware one-shot signal used to bound observation of an
 /// unstructured provider startup task without dropping ownership of the task.
+/// SAFETY: `lock` protects the one-shot signal and waiter. The continuation is
+/// removed while locked and resumed only after unlocking.
 private final class CancellationSignal: @unchecked Sendable {
     private let lock = NSLock()
     private var signaled = false
@@ -2490,6 +2492,9 @@ private final class CancellationSignal: @unchecked Sendable {
 /// structured child that would wait for a non-cooperative provider forever.
 /// The provider task remains owned by `VoiceCoordinator`; this object only
 /// bounds the caller's observation of it.
+/// SAFETY: `lock` protects the winner flag, waiter, and observer-task handles.
+/// Observer cancellation and continuation resumption happen only after the
+/// critical section, so neither operation can re-enter while the lock is held.
 private final class ProviderStartupRace: @unchecked Sendable {
     private let provider: Task<Void, Error>
     private let cancellation: CancellationSignal
@@ -2584,6 +2589,8 @@ private final class ProviderStartupRace: @unchecked Sendable {
 /// Races observation of an unstructured task against a timeout without
 /// cancelling the observed task. The observed task may still be cleaning up;
 /// the owner retains it and can reconcile on a later close.
+/// SAFETY: `lock` protects the winner flag, waiter, and observer-task handles.
+/// Task cancellation and continuation resumption happen only after unlocking.
 private final class BoundedTaskRace<Value: Sendable>: @unchecked Sendable {
     private let task: Task<Value, Never>
     private let timeout: Duration

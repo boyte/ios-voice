@@ -60,11 +60,25 @@ final class RecoveryLifecycleAuditTests: XCTestCase {
             let output = ControlledSpeechOutput()
             await input.setFailure(HarnessFailure(stage: stage, message: stage.description))
             let coordinator = VoiceCoordinator(input: input, output: output)
+            let expectedFailure: VoiceError
+            switch stage {
+            case .microphonePermission:
+                expectedFailure = .microphonePermissionDenied
+            case .speechAuthorization:
+                expectedFailure = .speechPermissionDenied
+            case .capability:
+                expectedFailure = .unsupportedLocale(.current)
+            default:
+                XCTFail("unexpected permission/capability stage: \(stage)")
+                continue
+            }
 
             do {
                 try await coordinator.startListening()
                 XCTFail("expected injected \(stage) failure")
-            } catch { }
+            } catch {
+                XCTAssertEqual(error as? VoiceError, expectedFailure)
+            }
 
             let starts = await input.starts
             XCTAssertEqual(starts, 0, "permission/capability failure entered capture")
@@ -79,13 +93,16 @@ final class RecoveryLifecycleAuditTests: XCTestCase {
         let ledger = ResourceLedger()
         let input = ControlledSpeechInput(ledger: ledger)
         let voice = AppLocalVoice(input: input, output: ControlledSpeechOutput(ledger: ledger))
-        await input.setFailure(HarnessFailure(stage: .finalization, message: "finalization failed"))
+        let expectedFailure = HarnessFailure(stage: .finalization, message: "finalization failed")
+        await input.setFailure(expectedFailure)
 
         try await voice.startListening()
         do {
             _ = try await voice.finishListening()
             XCTFail("expected finalization failure")
-        } catch { }
+        } catch {
+            XCTAssertEqual(error as? HarnessFailure, expectedFailure)
+        }
 
         let failedState = await voice.state
         let failedBalanced = await ledger.isBalanced()
@@ -146,12 +163,15 @@ final class RecoveryLifecycleAuditTests: XCTestCase {
         let input = ControlledSpeechInput(ledger: ledger)
         let output = ControlledSpeechOutput(ledger: ledger)
         let coordinator = VoiceCoordinator(input: input, output: output)
-        await output.setFailure(HarnessFailure(stage: .speech, message: "synthesis failed"))
+        let expectedFailure = HarnessFailure(stage: .speech, message: "synthesis failed")
+        await output.setFailure(expectedFailure)
 
         do {
             try await coordinator.speak("first")
             XCTFail("expected synthesis failure")
-        } catch { }
+        } catch {
+            XCTAssertEqual(error as? HarnessFailure, expectedFailure)
+        }
 
         let failedCounts = await ledger.count(.speech)
         XCTAssertEqual(failedCounts.acquired, 0)

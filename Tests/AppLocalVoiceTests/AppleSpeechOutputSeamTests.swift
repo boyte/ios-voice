@@ -860,10 +860,16 @@ private actor CompletionFlag {
     func mark() { value = true }
 }
 
+/// SAFETY: `lock` protects the handler table and counters. `post` copies its
+/// matching callbacks while locked and invokes them only after unlocking.
 private final class OutputNotificationCenter: @unchecked Sendable, AudioNotificationCenter {
+    private let lock = NSLock()
     private var handlers: [NSObject: (Notification.Name?, @Sendable (Notification) -> Void)] = [:]
-    private(set) var names: [Notification.Name?] = []
-    private(set) var removeCount = 0
+    private var recordedNames: [Notification.Name?] = []
+    private var recordedRemoveCount = 0
+
+    var names: [Notification.Name?] { lock.withLock { recordedNames } }
+    var removeCount: Int { lock.withLock { recordedRemoveCount } }
 
     func addObserver(
         forName name: Notification.Name?,
@@ -872,48 +878,63 @@ private final class OutputNotificationCenter: @unchecked Sendable, AudioNotifica
         using block: @escaping @Sendable (Notification) -> Void
     ) -> NSObjectProtocol {
         let token = NSObject()
-        handlers[token] = (name, block)
-        names.append(name)
+        lock.withLock {
+            handlers[token] = (name, block)
+            recordedNames.append(name)
+        }
         return token
     }
 
     func removeObserver(_ observer: Any) {
         guard let token = observer as? NSObject else { return }
-        removeCount += 1
-        handlers.removeValue(forKey: token)
+        lock.withLock {
+            recordedRemoveCount += 1
+            handlers.removeValue(forKey: token)
+        }
     }
 
     func post(_ notification: Notification) {
-        handlers.values
-            .filter { $0.0 == notification.name }
-            .forEach { $0.1(notification) }
+        let callbacks = lock.withLock {
+            handlers.values
+                .filter { $0.0 == notification.name }
+                .map { $0.1 }
+        }
+        callbacks.forEach { $0(notification) }
     }
 }
 
+/// SAFETY: the internal lock protects all mutable fixture state. Production
+/// protocol calls and direct test inspection therefore use the same ordering
+/// domain, and no callback runs while the lock is held.
 private final class OutputAudioSessionDriver: @unchecked Sendable, AudioSessionDriver {
-    private(set) var deactivationCalls = 0
+    private let lock = NSLock()
+    private var recordedDeactivationCalls = 0
     private var restoreFailure = false
     private var currentSnapshot = AudioSessionSnapshot.empty
+
+    var deactivationCalls: Int { lock.withLock { recordedDeactivationCalls } }
 
     var isOtherAudioPlaying: Bool { false }
 
     func configureForVoice() throws {}
 
-    func snapshot() -> AudioSessionSnapshot { currentSnapshot }
+    func snapshot() -> AudioSessionSnapshot { lock.withLock { currentSnapshot } }
 
     func setActive(_ active: Bool) throws {
-        if !active { deactivationCalls += 1 }
+        if !active { lock.withLock { recordedDeactivationCalls += 1 } }
     }
 
     func restore(_ snapshot: AudioSessionSnapshot) throws {
-        if restoreFailure {
-            throw VoiceError.audioSessionUnavailable("fixture restore failure")
+        try lock.withLock {
+            if restoreFailure {
+                throw VoiceError.audioSessionUnavailable("fixture restore failure")
+            }
+            currentSnapshot = snapshot
         }
-        currentSnapshot = snapshot
     }
 
     func setRestoreFailure(_ failed: Bool) {
-        restoreFailure = failed
+        lock.withLock { restoreFailure = failed }
     }
 
     func mutatePreferences(
@@ -921,15 +942,17 @@ private final class OutputAudioSessionDriver: @unchecked Sendable, AudioSessionD
         bufferDuration: Double,
         inputUID: String?
     ) {
-        currentSnapshot = AudioSessionSnapshot(
-            category: currentSnapshot.category,
-            mode: currentSnapshot.mode,
-            routeSharingPolicy: currentSnapshot.routeSharingPolicy,
-            categoryOptions: currentSnapshot.categoryOptions,
-            preferredSampleRate: sampleRate,
-            preferredIOBufferDuration: bufferDuration,
-            preferredInputUID: inputUID
-        )
+        lock.withLock {
+            currentSnapshot = AudioSessionSnapshot(
+                category: currentSnapshot.category,
+                mode: currentSnapshot.mode,
+                routeSharingPolicy: currentSnapshot.routeSharingPolicy,
+                categoryOptions: currentSnapshot.categoryOptions,
+                preferredSampleRate: sampleRate,
+                preferredIOBufferDuration: bufferDuration,
+                preferredInputUID: inputUID
+            )
+        }
     }
 }
 

@@ -33,13 +33,16 @@ final class DeterministicLifecycleTests: XCTestCase {
         for stage in stages {
             let ledger = ResourceLedger()
             let input = ControlledSpeechInput(ledger: ledger)
-            await input.setFailure(HarnessFailure(stage: stage, message: stage.description))
+            let expectedFailure = HarnessFailure(stage: stage, message: stage.description)
+            await input.setFailure(expectedFailure)
             let coordinator = VoiceCoordinator(input: input, output: ControlledSpeechOutput())
 
             do {
                 try await coordinator.startListening(configuration: .init(policy: .allowModelInstallation))
                 XCTFail("expected \(stage) failure")
-            } catch { }
+            } catch {
+                XCTAssertEqual(error as? HarnessFailure, expectedFailure)
+            }
 
             let balanced = await ledger.isBalanced()
             let state = await coordinator.state
@@ -70,14 +73,17 @@ final class DeterministicLifecycleTests: XCTestCase {
     func testFinalizationFailureRecoversToIdleAndBalancesResources() async throws {
         let ledger = ResourceLedger()
         let input = ControlledSpeechInput(ledger: ledger)
-        await input.setFailure(HarnessFailure(stage: .finalization, message: "finalize failed"))
+        let expectedFailure = HarnessFailure(stage: .finalization, message: "finalize failed")
+        await input.setFailure(expectedFailure)
         let coordinator = VoiceCoordinator(input: input, output: ControlledSpeechOutput())
         try await coordinator.startListening()
 
         do {
             _ = try await coordinator.endListening()
             XCTFail("expected finalization failure")
-        } catch { }
+        } catch {
+            XCTAssertEqual(error as? HarnessFailure, expectedFailure)
+        }
 
         let state = await coordinator.state
         let balanced = await ledger.isBalanced()

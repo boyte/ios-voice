@@ -473,6 +473,10 @@ private enum TestAudioSessionTransition: Equatable {
     case restore
 }
 
+/// SAFETY: every protocol call is serialized by the `AudioSessionBroker` under
+/// test. Direct fixture configuration and inspection occurs only before or
+/// after an awaited broker operation; `onConfigure` is synchronous re-entry on
+/// that same broker lock rather than concurrent access.
 private final class TestAudioSessionDriver: @unchecked Sendable, AudioSessionDriver {
     var otherAudioPlaying = false
     var configurationError: TestAudioSessionError?

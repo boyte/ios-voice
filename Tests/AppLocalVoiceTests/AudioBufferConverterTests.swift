@@ -58,8 +58,10 @@ final class AudioBufferConverterTests: XCTestCase {
 
         XCTAssertEqual(firstOutput.count, 1)
         XCTAssertEqual(secondOutput.count, 1)
-        XCTAssertEqual(firstOutput[0].buffer.floatChannelData![0][0], 0.1, accuracy: 0.0001)
-        XCTAssertEqual(secondOutput[0].buffer.floatChannelData![0][0], 0.9, accuracy: 0.0001)
+        let firstChannels = try XCTUnwrap(firstOutput[0].buffer.floatChannelData)
+        let secondChannels = try XCTUnwrap(secondOutput[0].buffer.floatChannelData)
+        XCTAssertEqual(firstChannels[0][0], 0.1, accuracy: 0.0001)
+        XCTAssertEqual(secondChannels[0][0], 0.9, accuracy: 0.0001)
         XCTAssertEqual(firstOutput[0].bufferStartTime, CMTime(value: 0, timescale: 16_000))
         XCTAssertEqual(secondOutput[0].bufferStartTime, CMTime(value: 2, timescale: 16_000))
     }

@@ -73,6 +73,9 @@ struct CanonicalVoiceEventDelivery {
 
 }
 
+/// SAFETY: `lock` protects the durable/advisory buffers, waiter, terminal
+/// failure, and exactly-once termination state. Continuations and termination
+/// callbacks are always resumed or invoked after unlocking.
 private final class CanonicalVoiceEventSubscription: @unchecked Sendable {
     private struct Buffered {
         let event: VoiceEventStreamEvent
@@ -147,7 +150,7 @@ private final class CanonicalVoiceEventSubscription: @unchecked Sendable {
 
     private func install(_ continuation: CheckedContinuation<VoiceEventStreamEvent?, Error>) {
         lock.lock()
-        let result: Result<VoiceEventStreamEvent?, Error>?
+        let result: Result<VoiceEventStreamEvent?, Error>
         if let buffered = removeOldestLocked() {
             result = .success(buffered.event)
         } else if let failure = terminalFailure {
@@ -163,7 +166,7 @@ private final class CanonicalVoiceEventSubscription: @unchecked Sendable {
             return
         }
         lock.unlock()
-        switch result! {
+        switch result {
         case .success(let value): continuation.resume(returning: value)
         case .failure(let error): continuation.resume(throwing: error)
         }
@@ -173,7 +176,7 @@ private final class CanonicalVoiceEventSubscription: @unchecked Sendable {
         var selected = durable.first
         var key: String?
         for (candidateKey, candidate) in advisory {
-            if selected == nil || candidate.deliveryOrder < selected!.deliveryOrder {
+            if selected.map({ candidate.deliveryOrder < $0.deliveryOrder }) ?? true {
                 selected = candidate
                 key = candidateKey
             }
@@ -236,7 +239,7 @@ private final class CanonicalVoiceEventSubscription: @unchecked Sendable {
     }
 }
 
-private final class CanonicalVoiceEventStreamLifetime: @unchecked Sendable {
+private final class CanonicalVoiceEventStreamLifetime: Sendable {
     private let stream: AsyncStream<Void>
     private let continuation: AsyncStream<Void>.Continuation
 

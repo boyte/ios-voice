@@ -16,6 +16,8 @@ public enum EventDeliveryCursor: Hashable, Sendable {
 }
 
 /// Process-wide admission registry for canonical event observers.
+/// SAFETY: `lock` protects the complete subscriber-ID set transaction for every
+/// admission, release, and count operation. No callback runs under the lock.
 final class CanonicalEventSubscriberRegistry: @unchecked Sendable {
     struct Admission: Sendable, Equatable {
         let accepted: Bool
@@ -151,6 +153,9 @@ private final class WeakRecognitionEventSubscription {
     }
 }
 
+/// SAFETY: `lock` protects all buffered events, waiter state, terminal state,
+/// and exactly-once termination state. Continuations and callbacks are copied
+/// out and resumed or invoked only after unlocking.
 private final class RecognitionEventSubscription: @unchecked Sendable {
     private struct BufferedEvent {
         let deliveryOrder: UInt64
@@ -286,7 +291,7 @@ private final class RecognitionEventSubscription: @unchecked Sendable {
         var selectedAdvisoryKey: AdvisoryKey?
 
         for (key, candidate) in advisoryEvents {
-            if selected == nil || candidate.deliveryOrder < selected!.deliveryOrder {
+            if selected.map({ candidate.deliveryOrder < $0.deliveryOrder }) ?? true {
                 selected = candidate
                 selectedAdvisoryKey = key
             }
@@ -349,7 +354,7 @@ private final class RecognitionEventSubscription: @unchecked Sendable {
 /// The throwing unfolding initializer in the supported SDK has no `onCancel`
 /// parameter. This sentinel uses the supported continuation termination hook
 /// to end a subscription when the returned stream releases its producer.
-private final class RecognitionEventStreamLifetime: @unchecked Sendable {
+private final class RecognitionEventStreamLifetime: Sendable {
     private let stream: AsyncStream<Void>
     private let continuation: AsyncStream<Void>.Continuation
 
