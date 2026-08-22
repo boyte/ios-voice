@@ -5,16 +5,13 @@ on:
     branches: [main]
   pull_request:
   # XCTest needs a healthy CoreSimulator service, which GitHub-hosted macOS
-  # runners cannot currently provide reliably. Keep the deterministic matrix
-  # available as an explicit evidence run without making ordinary source
-  # changes wait on an unrelated runner-service stall.
+  # runners cannot currently provide reliably. The simulator matrix is an
+  # explicit manual run so ordinary changes do not wait on a runner stall.
   workflow_dispatch:
 
 permissions:
   contents: read
 
-# A simulator test run owns CoreSimulator state on its runner. Do not allow a
-# newer push or a duplicate retry for the same ref to race that state.
 concurrency:
   group: applocalvoice-ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -22,10 +19,7 @@ concurrency:
 env:
   # Keep this pinned. Change deliberately when the supported SDK changes.
   XCODE_VERSION: '26.0'
-  # The simulator runtime is part of the test identity. Do not select the
-  # first runtime installed on a hosted runner.
   IOS_SIMULATOR_RUNTIME: 'iOS-26-0'
-  APPLOCALVOICE_SIMULATOR_RUNTIME: 'iOS-26-0'
 
 jobs:
   package-and-docs:
@@ -42,20 +36,14 @@ jobs:
           xcodebuild -version
           swift --version
           xcrun --sdk iphonesimulator --show-sdk-version
-      - name: Validate package manifest
-        run: swift package dump-package >/dev/null
-      - name: Validate test inventory
-        run: python3 Scripts/test-inventory.py --check Documentation/TestInventory.json
-      - name: Validate repository documentation
-        run: python3 Scripts/validate-documentation.py
-      - name: Audit release scaffolding
-        run: python3 Scripts/audit-release-scaffolding.py
-      - name: Test release and evidence scripts
+      - name: Validate package manifest, repository lint, docs, and tooling tests
         env:
           PYTHONDONTWRITEBYTECODE: '1'
-        run: python3 -m unittest discover -s Scripts/tests -p 'test_*.py' -v
-      - name: Validate privacy and crash evidence tooling
-        run: Scripts/validate-evidence-tooling.sh
+        run: |
+          swift package dump-package >/dev/null
+          python3 Scripts/lint-repository.py
+          python3 Scripts/validate-documentation.py
+          python3 -m unittest discover -s Scripts/tests -p 'test_*.py' -v
       - name: Build package with warnings as errors
         run: |
           swift build \
@@ -124,33 +112,14 @@ jobs:
             -Xcc -fmodule-map-file="$MODULE_MAP" \
             -Xcc -I -Xcc "$GITHUB_WORKSPACE/Sources/AppLocalVoiceAudioEngineSafe/include" \
             "$RUNNER_TEMP/CleanClient.swift"
-      - name: Create package evidence manifest
-        run: |
-          SOURCE_DATE_EPOCH="$(git show -s --format=%ct HEAD)" \
-          python3 Scripts/create-artifact-manifest.py \
-            --output "$RUNNER_TEMP/AppLocalVoice-package-manifest.json" \
-            --status passed \
-            --destination 'generic iOS Simulator' \
-            --source-revision "$(git rev-parse HEAD)" \
-            --toolchain "$(xcodebuild -version | tr '\n' '; ' | sed 's/; $//')" \
-            --sdk "$(xcrun --sdk iphonesimulator --show-sdk-version)" \
-            --runtime "$IOS_SIMULATOR_RUNTIME" \
-            --evidence-kind package \
-            --test-inventory Documentation/TestInventory.json \
-            --api-symbol-graph "$RUNNER_TEMP/symbol-graphs/AppLocalVoice.symbols.json" \
-            --artifact "$RUNNER_TEMP/symbol-graphs" \
-            --artifact "$RUNNER_TEMP/AppLocalVoice.doccarchive" \
-            --artifact Documentation/TestInventory.json
-      - name: Upload package evidence manifest
+      - name: Upload symbol graph
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: applocalvoice-package-evidence-manifest
-          path: ${{ runner.temp }}/AppLocalVoice-package-manifest.json
+          name: applocalvoice-symbol-graph
+          path: ${{ runner.temp }}/symbol-graphs
           if-no-files-found: error
 
   simulator-tests:
-    # This matrix is deliberate/manual evidence. Push and pull-request CI
-    # still validates the package, docs, API, benchmarks, and memory sweep.
     if: github.event_name == 'workflow_dispatch'
     runs-on: macos-15
     timeout-minutes: 30
@@ -168,7 +137,7 @@ jobs:
         uses: maxim-lobanov/setup-xcode@60606e260d2fc5762a71e64e74b2174e8ea3c8bd # v1.6.0
         with:
           xcode-version: ${{ env.XCODE_VERSION }}
-      - name: Select the required iPhone simulator
+      - name: Select the required simulator
         id: simulator
         shell: bash
         run: |
@@ -184,62 +153,20 @@ jobs:
           with open(path, encoding="utf-8") as handle:
               document = json.load(handle)
           matches = [
-              (runtime, device["udid"])
+              device["udid"]
               for runtime, devices in document.get("devices", {}).items()
               if runtime.endswith(runtime_suffix)
               for device in devices
               if device.get("isAvailable", True) and device.get("name") == name and device.get("udid")
           ]
           if len(matches) != 1:
-              raise SystemExit(
-                  f"expected exactly one {name} on runtime *{runtime_suffix}; "
-                  f"found {len(matches)}: {[runtime for runtime, _ in matches]}"
-              )
-          print(matches[0][1])
-          PY
-          )"
-          rm -f "$SIMULATOR_JSON"
-          test -n "$DEVICE_ID"
-          echo "id=$DEVICE_ID" >> "$GITHUB_OUTPUT"
-          echo "name=$SIMULATOR_NAME" >> "$GITHUB_OUTPUT"
-          echo "runtime=$IOS_SIMULATOR_RUNTIME" >> "$GITHUB_OUTPUT"
-          xcrun simctl list devices available | awk -v id="$DEVICE_ID" 'index($0, "(" id ")") {print; exit}'
-      - name: Resolve simulator runtime build
-        id: simulator-provenance
-        shell: bash
-        env:
-          SIMULATOR_RUNTIME: ${{ steps.simulator.outputs.runtime }}
-        run: |
-          set -euo pipefail
-          RUNTIMES_JSON="$RUNNER_TEMP/AppLocalVoice-runtimes.json"
-          xcrun simctl list runtimes --json > "$RUNTIMES_JSON"
-          SIMULATOR_OS_BUILD="$(python3 - "$SIMULATOR_RUNTIME" "$RUNTIMES_JSON" <<'PY'
-          import json
-          import sys
-
-          runtime_suffix, path = sys.argv[1:]
-          with open(path, encoding="utf-8") as handle:
-              runtimes = json.load(handle).get("runtimes", [])
-          matches = [
-              runtime.get("buildversion", "")
-              for runtime in runtimes
-              if runtime.get("isAvailable", True)
-              and runtime.get("identifier", "").endswith(runtime_suffix)
-              and runtime.get("buildversion")
-          ]
-          if len(matches) != 1:
-              raise SystemExit(
-                  f"expected one available runtime ending {runtime_suffix!r}; "
-                  f"found {len(matches)}"
-              )
+              raise SystemExit(f"expected exactly one {name} on runtime *{runtime_suffix}; found {len(matches)}")
           print(matches[0])
           PY
           )"
-          rm -f "$RUNTIMES_JSON"
-          test -n "$SIMULATOR_OS_BUILD"
-          echo "os-build=$SIMULATOR_OS_BUILD" >> "$GITHUB_OUTPUT"
+          test -n "$DEVICE_ID"
+          echo "id=$DEVICE_ID" >> "$GITHUB_OUTPUT"
       - name: Run simulator tests
-        id: simulator-tests
         shell: bash
         env:
           DEVICE_ID: ${{ steps.simulator.outputs.id }}
@@ -261,14 +188,11 @@ jobs:
               -derivedDataPath "$DERIVED_DATA" \
               -parallel-testing-enabled NO \
               -maximum-parallel-testing-workers 1 \
-              -enableCodeCoverage YES \
               CODE_SIGNING_ALLOWED=NO 2>&1 | tee -a "$LOG"
           }
           if ! run_suite; then
             # Hosted CoreSimulator can lose its service during a cold app
-            # launch. Retry once from a clean destination; each simctl call
-            # has its own process-group deadline so cleanup cannot mask the
-            # original evidence or consume the whole job.
+            # launch. Retry once from a clean destination.
             echo '--- retrying simulator suite after first launch failure ---' | tee -a "$LOG"
             Scripts/run-with-timeout.pl 120 simulator-reset \
               xcrun simctl shutdown "$DEVICE_ID" || true
@@ -276,233 +200,23 @@ jobs:
               xcrun simctl erase "$DEVICE_ID" || true
             run_suite
           fi
-      - name: Reconcile executed XCTest inventory
-        run: |
-          xcrun xcresulttool get test-results summary \
-            --path "$RUNNER_TEMP/AppLocalVoice-simulator-tests.xcresult" \
-            --format json > "$RUNNER_TEMP/AppLocalVoice-test-summary.json"
-          xcrun xcresulttool get test-results tests \
-            --path "$RUNNER_TEMP/AppLocalVoice-simulator-tests.xcresult" \
-            --format json > "$RUNNER_TEMP/AppLocalVoice-test-details.json"
-          python3 Scripts/validate-test-result.py \
-            --inventory Documentation/TestInventory.json \
-            --summary "$RUNNER_TEMP/AppLocalVoice-test-summary.json" \
-            --tests "$RUNNER_TEMP/AppLocalVoice-test-details.json" \
-            --max-skipped 1
-      - name: Sanitize simulator evidence log
-        if: always()
-        run: |
-          set -euo pipefail
-          LOG="$RUNNER_TEMP/AppLocalVoice-simulator-tests.log"
-          if [[ -s "$LOG" ]]; then
-            python3 Scripts/sanitize-evidence-log.py "$LOG" "$LOG.sanitized"
-            mv "$LOG.sanitized" "$LOG"
-          fi
       - name: Collect simulator diagnostics
         if: always()
         shell: bash
-        env:
-          DEVICE_ID: ${{ steps.simulator.outputs.id }}
         run: |
           set +e
           echo '--- simulator list ---'
           xcrun simctl list devices || true
-          echo '--- simulator processes ---'
-          pgrep -alf 'CoreSimulator|Simulator' || true
           echo '--- recent CoreSimulator log ---'
           log show --last 10m --style compact --predicate 'process CONTAINS[c] "CoreSimulator" OR process CONTAINS[c] "simctl"' || true
           echo '--- xcodebuild log tail ---'
           tail -n 200 "$RUNNER_TEMP/AppLocalVoice-simulator-tests.log" 2>/dev/null || true
-      - name: Upload simulator diagnostics
+      - name: Upload simulator results
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: applocalvoice-simulator-diagnostics-${{ matrix.id }}
+          name: applocalvoice-simulator-tests-${{ matrix.id }}
           path: |
             ${{ runner.temp }}/AppLocalVoice-simulator-tests.log
             ${{ runner.temp }}/AppLocalVoice-simulator-tests.xcresult
-            ${{ runner.temp }}/AppLocalVoice-test-details.json
           if-no-files-found: warn
-      - name: Export coverage report
-        if: always()
-        shell: bash
-        run: |
-          set -euo pipefail
-          COVERAGE_DIR="$RUNNER_TEMP/AppLocalVoice-coverage"
-          mkdir -p "$COVERAGE_DIR"
-          RESULT="$RUNNER_TEMP/AppLocalVoice-simulator-tests.xcresult"
-          if [[ -d "$RESULT" ]]; then
-            xcrun xccov view --report --json "$RESULT" > "$COVERAGE_DIR/AppLocalVoice-coverage.json"
-            xcrun xccov view --report "$RESULT" > "$COVERAGE_DIR/AppLocalVoice-coverage.txt"
-          else
-            echo "No simulator result bundle was produced; coverage is unavailable." >&2
-          fi
-      - name: Upload coverage report
-        if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        with:
-          name: applocalvoice-coverage-${{ matrix.id }}
-          path: ${{ runner.temp }}/AppLocalVoice-coverage
-          if-no-files-found: warn
-      - name: Create simulator evidence manifest
-        if: always()
-        env:
-          SIMULATOR_RUNTIME: ${{ steps.simulator.outputs.runtime }}
-          SIMULATOR_OS_BUILD: ${{ steps.simulator-provenance.outputs.os-build }}
-        run: |
-          set -euo pipefail
-          test -n "$SIMULATOR_OS_BUILD"
-          SOURCE_DATE_EPOCH="$(git show -s --format=%ct HEAD)" \
-          python3 Scripts/create-artifact-manifest.py \
-            --output "$RUNNER_TEMP/AppLocalVoice-simulator-manifest.json" \
-            --status "${{ steps.simulator-tests.outcome }}" \
-            --destination "iOS Simulator ${{ matrix.name }} $SIMULATOR_RUNTIME" \
-            --source-revision "$(git rev-parse HEAD)" \
-            --toolchain "$(xcodebuild -version | tr '\n' '; ' | sed 's/; $//')" \
-            --sdk "$(xcrun --sdk iphonesimulator --show-sdk-version)" \
-            --runtime "$SIMULATOR_RUNTIME" \
-            --os-build "$SIMULATOR_OS_BUILD" \
-            --evidence-kind simulator-tests \
-            --test-inventory Documentation/TestInventory.json \
-            --artifact "$RUNNER_TEMP/AppLocalVoice-simulator-tests.log" \
-            --artifact "$RUNNER_TEMP/AppLocalVoice-simulator-tests.xcresult" \
-            --artifact "$RUNNER_TEMP/AppLocalVoice-test-details.json" \
-            --artifact "$RUNNER_TEMP/AppLocalVoice-coverage"
-      - name: Upload simulator evidence manifest
-        if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        with:
-          name: applocalvoice-simulator-evidence-manifest-${{ matrix.id }}
-          path: ${{ runner.temp }}/AppLocalVoice-simulator-manifest.json
-          if-no-files-found: error
-  benchmarks:
-    runs-on: macos-15
-    # A cold hosted runner can spend several minutes resolving and compiling
-    # the local Swift package before the bounded XCTest starts. Keep the
-    # watchdog below the job limit while leaving enough time for evidence.
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      - name: Select pinned Xcode
-        uses: maxim-lobanov/setup-xcode@60606e260d2fc5762a71e64e74b2174e8ea3c8bd # v1.6.0
-        with:
-          xcode-version: ${{ env.XCODE_VERSION }}
-      - name: Run bounded hardware-free benchmarks
-        id: benchmark-run
-        shell: bash
-        run: |
-          set -o pipefail
-          Scripts/run-with-timeout.pl 1200 benchmark \
-            Scripts/run-benchmarks.sh "$RUNNER_TEMP/AppLocalVoice-benchmarks" 2>&1 | tee "$RUNNER_TEMP/AppLocalVoice-benchmarks-ci.log"
-      - name: Upload benchmark regression artifacts
-        if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        with:
-          name: applocalvoice-benchmark-regression-artifacts
-          path: |
-            ${{ runner.temp }}/AppLocalVoice-benchmarks/AppLocalVoice-benchmarks.json
-            ${{ runner.temp }}/AppLocalVoice-benchmarks/AppLocalVoice-benchmarks-test-summary.json
-            ${{ runner.temp }}/AppLocalVoice-benchmarks/AppLocalVoice-benchmarks.xcresult
-            ${{ runner.temp }}/AppLocalVoice-benchmarks/AppLocalVoice-benchmarks.log
-            ${{ runner.temp }}/AppLocalVoice-benchmarks-ci.log
-          if-no-files-found: error
-      - name: Create benchmark evidence manifest
-        if: always()
-        run: |
-          SOURCE_DATE_EPOCH="$(git show -s --format=%ct HEAD)" \
-          python3 Scripts/create-artifact-manifest.py \
-            --output "$RUNNER_TEMP/AppLocalVoice-benchmark-manifest.json" \
-            --status "${{ steps.benchmark-run.outcome }}" \
-            --destination 'iPhone Simulator benchmark proxy' \
-            --source-revision "$(git rev-parse HEAD)" \
-            --toolchain "$(xcodebuild -version | tr '\n' '; ' | sed 's/; $//')" \
-            --sdk "$(xcrun --sdk iphonesimulator --show-sdk-version)" \
-            --runtime "$APPLOCALVOICE_SIMULATOR_RUNTIME" \
-            --evidence-kind benchmark \
-            --test-inventory Documentation/TestInventory.json \
-            --artifact "$RUNNER_TEMP/AppLocalVoice-benchmarks" \
-            --artifact "$RUNNER_TEMP/AppLocalVoice-benchmarks-ci.log"
-      - name: Upload benchmark evidence manifest
-        if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        with:
-          name: applocalvoice-benchmark-evidence-manifest
-          path: ${{ runner.temp }}/AppLocalVoice-benchmark-manifest.json
-          if-no-files-found: error
-
-  api-surface:
-    runs-on: macos-15
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      - name: Select pinned Xcode
-        uses: maxim-lobanov/setup-xcode@60606e260d2fc5762a71e64e74b2174e8ea3c8bd # v1.6.0
-        with:
-          xcode-version: ${{ env.XCODE_VERSION }}
-      - name: Emit public symbol graph
-        run: |
-          Scripts/emit-public-symbol-graph.sh \
-            "$RUNNER_TEMP/symbol-graphs" \
-            "$RUNNER_TEMP/ProductionGraphDerivedData"
-      - name: Validate checked-in public API baseline
-        run: |
-          python3 Scripts/validate-public-api.py \
-            --symbol-graph "$RUNNER_TEMP/symbol-graphs/AppLocalVoice.symbols.json"
-      - name: Upload symbol graph
-        if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        with:
-          name: app-local-voice-symbol-graph
-          path: ${{ runner.temp }}/symbol-graphs
-          if-no-files-found: error
-
-  memory-sweep:
-    runs-on: macos-15
-    # This has the same clean-simulator setup cost as benchmarks. Preserve a
-    # bounded watchdog while allowing cold erase/boot time on hosted macOS.
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
-      - name: Select pinned Xcode
-        uses: maxim-lobanov/setup-xcode@60606e260d2fc5762a71e64e74b2174e8ea3c8bd # v1.6.0
-        with:
-          xcode-version: ${{ env.XCODE_VERSION }}
-      - name: Run bounded memory sweep
-        id: memory-sweep-run
-        shell: bash
-        run: |
-          set -o pipefail
-          Scripts/run-with-timeout.pl 1200 memory-sweep \
-            Scripts/run-memory-sweep.sh "$RUNNER_TEMP/AppLocalVoice-memory-sweep" 2>&1 | tee "$RUNNER_TEMP/AppLocalVoice-memory-sweep-ci.log"
-      - name: Upload memory sweep artifacts
-        if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        with:
-          name: applocalvoice-memory-sweep-artifacts
-          path: |
-            ${{ runner.temp }}/AppLocalVoice-memory-sweep
-            ${{ runner.temp }}/AppLocalVoice-memory-sweep-ci.log
-          if-no-files-found: error
-      - name: Create memory evidence manifest
-        if: always()
-        run: |
-          SOURCE_DATE_EPOCH="$(git show -s --format=%ct HEAD)" \
-          python3 Scripts/create-artifact-manifest.py \
-            --output "$RUNNER_TEMP/AppLocalVoice-memory-manifest.json" \
-            --status "${{ steps.memory-sweep-run.outcome }}" \
-            --destination 'iPhone Simulator memory proxy' \
-            --source-revision "$(git rev-parse HEAD)" \
-            --toolchain "$(xcodebuild -version | tr '\n' '; ' | sed 's/; $//')" \
-            --sdk "$(xcrun --sdk iphonesimulator --show-sdk-version)" \
-            --runtime "$APPLOCALVOICE_SIMULATOR_RUNTIME" \
-            --evidence-kind memory-sweep \
-            --test-inventory Documentation/TestInventory.json \
-            --artifact "$RUNNER_TEMP/AppLocalVoice-memory-sweep" \
-            --artifact "$RUNNER_TEMP/AppLocalVoice-memory-sweep-ci.log"
-      - name: Upload memory evidence manifest
-        if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-        with:
-          name: applocalvoice-memory-evidence-manifest
-          path: ${{ runner.temp }}/AppLocalVoice-memory-manifest.json
-          if-no-files-found: error

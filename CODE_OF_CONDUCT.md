@@ -6,9 +6,8 @@ Maintainers may remove content or restrict participation when conduct conflicts 
 
 ## Reporting
 
-Conduct reports require a private channel. This pre-release checkout does not
-yet identify one, so sensitive reports must not be placed in a public issue or
-pull request. Before the repository is published, the release owner must add
-an actual reporting contact here and link it from [SUPPORT.md](SUPPORT.md).
-The maintainer will acknowledge a report, assess it privately, and take an
-appropriate corrective action without publishing sensitive details.
+Conduct reports need a private channel: contact the maintainer listed in
+[CODEOWNERS](.github/CODEOWNERS) directly rather than opening a public issue
+or pull request. The maintainer will acknowledge a report, assess it
+privately, and take an appropriate corrective action without publishing
+sensitive details.

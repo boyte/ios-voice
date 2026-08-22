@@ -2,29 +2,15 @@
 
 <!-- What behavior changes, and what failure mode does it address? -->
 
-## Tests
+## Checklist
 
-- [ ] Deterministic tests added or updated
-- [ ] `xcodebuild test -project Testing/AppLocalVoice.xcodeproj -scheme AppLocalVoiceTests -destination 'platform=iOS Simulator,name=iPhone 17 Pro' -parallel-testing-enabled NO` passes, or the exact host limitation is documented
-- [ ] strict `xcodebuild build-for-testing` passes for package changes
-- [ ] Physical-device testing performed for audio changes
-
-## Privacy and scope
-
-- [ ] No microphone audio, transcript text, or TTS text was added to logs
+- [ ] Deterministic tests added or updated for the behavior change
+- [ ] `xcodebuild test -project Testing/AppLocalVoice.xcodeproj -scheme AppLocalVoiceTests -destination 'platform=iOS Simulator,name=iPhone 17 Pro' -parallel-testing-enabled NO` passes locally
+- [ ] No microphone audio, transcript text, or TTS text was added to logs or diagnostics
 - [ ] No networking, credentials, persistence, analytics, or provider SDK was added to the core package
-- [ ] Documentation updated, if behavior or public API changed
-- [ ] DocC catalog builds, if public API or operational behavior changed
-- [ ] Compatibility contract/changelog updated, if public behavior changed
+- [ ] Public API changes: baseline regenerated, `Documentation/PublicAPI.md` and `CHANGELOG.md` updated
+- [ ] Audio/lifecycle changes: physical-device observations listed below
 
 ## Device notes
 
-<!-- Include device, iOS version, route, locale, and interruption/route scenarios for audio changes. -->
-
-## Evidence
-
-<!-- Link deterministic tests, benchmark output, symbol-graph diffs, DocC output, or device reports. -->
-
-- [ ] Tracker task IDs and evidence links are updated.
-- [ ] If a gate cannot run here, the PR names the exact hardware or Git-remote
-      dependency instead of marking it complete.
+<!-- Device, iOS version, route, locale, and interruption/route scenarios for audio changes. Leave blank for non-audio changes. -->

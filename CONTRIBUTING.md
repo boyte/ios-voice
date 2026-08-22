@@ -30,16 +30,6 @@ Describe the user-visible behavior, failure mode addressed, test coverage, and a
 ## Release checklist
 
 The release owner verifies package tests, strict-warning builds, DocC, API
-compatibility, benchmark artifacts, and the physical-device matrix. Unknown
-device/OS cells must be listed in the release notes rather than implied to pass.
-
-Before proposing the first open-source release, run the offline repository
-scaffolding audit:
-
-```sh
-python3 Scripts/audit-release-scaffolding.py
-```
-
-It can run without network access. Treat every `OPEN` line as a handoff to the
-release owner; Git-host protection, required checks, and tag-signing policy
-must be verified in the hosted repository.
+compatibility, and the physical-device matrix. Unknown device/OS cells must be
+listed in the release notes rather than implied to pass. See
+[RELEASING.md](RELEASING.md).

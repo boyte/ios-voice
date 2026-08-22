@@ -17,9 +17,9 @@ and focused proposals; this document does not promise response times.
   AirPods, external audio, model installation, and endurance require a
   physical-device report.
 
-## Once the repository is hosted
+## Filing an issue
 
-Use the hosted project's issue tracker for reproducible bugs and narrowly
+Use the GitHub issue tracker for reproducible bugs and narrowly
 scoped feature proposals. Include the package version/tag, iOS and Xcode
 versions, device class, locale, audio route, exact lifecycle action, expected
 result, observed typed error/state, and a minimal reproduction that contains
@@ -32,10 +32,9 @@ contribution policy in [README](README.md#contributing).
 ## Security, privacy, and conduct
 
 Do **not** report a security or privacy issue in a public tracker. Follow
-[SECURITY.md](SECURITY.md) once the host configures private vulnerability
-reporting. Never attach microphone recordings, transcripts, TTS text,
+[SECURITY.md](SECURITY.md). Never attach microphone recordings, transcripts, TTS text,
 credentials, raw crash dumps, or unredacted logs.
 
-Conduct reports require a private channel. The release owner must add that
-channel to [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) before publication; do not
-put sensitive allegations in a public issue.
+Conduct reports require a private channel; see
+[CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md). Do not put sensitive allegations in
+a public issue.

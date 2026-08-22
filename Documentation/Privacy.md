@@ -35,57 +35,7 @@ disabled by default, emits no records without a host-provided sink,
 and never persists or exports records. See [privacy-safe diagnostics](Diagnostics.md)
 for the host integration contract.
 
-## Release artifact scanner
-
-Before release, scan retained evidence directories with:
-
-```sh
-python3 Scripts/validate-privacy-artifacts.py \
-  --metadata-allowlist Documentation/PrivacyMetadataAllowlist.json \
-  Documentation/evidence
-```
-
-The scanner recursively inspects only Markdown, JSON, text, and log files. It
-fails closed on unreadable files, symlinks, malformed JSON, credential-like
-content, raw audio or speech/transcript/TTS content, and private absolute paths.
-Diagnostics are sorted and stable in the form `path:line:CODE: message`; exit
-status 1 means a privacy finding and exit status 2 means invalid scanner input
-or policy.
-
-Structured evidence may use only the scanner's documented safe metadata fields
-(for example `operationId`, `state`, `routeClass`, `localeIdentifier`, timing,
-and stable `errorCategory`). An explicit, sorted allowlist can extend those
-fields only with names already approved by the scanner:
-
-```json
-{"metadata": ["event"]}
-```
-
-Pass it with `--metadata-allowlist`. An allowlist never permits credential
-fields, private paths, or fields named `transcript`, `utterance`, `speechText`,
-`ttsText`, or raw audio.
-
-The checked-in [PrivacyMetadataAllowlist.json](PrivacyMetadataAllowlist.json)
-contains the reviewed benchmark metadata paths (`measurements[].name` and
-`measurements[].notes`) and artifact manifest logical paths
-(`artifacts[].path`). These permit labels, controlled measurement notes, and
-relative filenames only; absolute private paths and raw user speech remain
-rejected.
-
-For retained text logs, sanitize before publication:
-
-```sh
-python3 Scripts/sanitize-evidence-log.py input.log output.log
-```
-
-The sanitizer is deterministic and line-preserving. It replaces absolute paths
-and username assignments with stable placeholders. A line matching likely
-speech payload or credential content is replaced as a whole with an explicit
-`[REDACTED: ...]` marker and counted in the CLI summary; it never invents or
-partially reconstructs speech text. Invalid UTF-8, binary/control bytes,
-symlinks, and logs over the 10 MiB default limit are rejected before output is
-written.
-# Provider error text
+## Provider error text
 
 Public `VoiceError` values use package-authored, stable messages when an Apple
 provider returns an unclassified failure. The package never forwards an

@@ -30,14 +30,6 @@ xcodebuild \
 
 The project has no external package dependencies. Its only package dependency is the checked-out repository itself, so the example remains importable after the repository is moved to another directory or cloned elsewhere.
 
-Before opening Xcode, you can run the dependency-free structural check from the repository root:
-
-```sh
-python3 Examples/LocalEcho/validate.py
-```
-
-It verifies the project, shared scheme, package path/product link, source membership, iOS deployment settings, and privacy plist. It does not replace the Xcode build or a real-device microphone check.
-
 ## Build the example into another app
 
 If you are using Local Echo as a reference rather than running the project, copy the three Swift files in this directory into an iOS 26 app target and add the repository root as a local Swift package. Keep the app’s package product dependency named `AppLocalVoice`.

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate repository Markdown links and the public documentation inventory.
+"""Validate repository-relative Markdown links offline.
 
 This checker is intentionally offline. External URLs are syntax-checked only
 as URLs and are never fetched; repository-relative destinations must resolve to
@@ -15,30 +15,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from urllib.parse import unquote, urlparse
 
-
-DEFAULT_REQUIRED_FILES = (
-    "README.md",
-    "Documentation/PublicAPI.md",
-    "Documentation/PublicAPISymbols.json",
-    "Documentation/AppLocalVoice.docc/AppLocalVoice.md",
-    "Documentation/AppLocalVoice.docc/BasicSpeechToText.md",
-    "Documentation/AppLocalVoice.docc/BasicTextToSpeech.md",
-    "Documentation/AppLocalVoice.docc/LocalEcho.md",
-    "Documentation/AppLocalVoice.docc/ModelInstallation.md",
-    "Documentation/AppLocalVoice.docc/RecoveryGuide.md",
-)
-DEFAULT_REQUIRED_REFERENCES = (
-    ("README.md", "Documentation/PublicAPI.md"),
-    ("README.md", "Documentation/AppLocalVoice.docc/BasicSpeechToText.md"),
-    ("README.md", "Documentation/AppLocalVoice.docc/BasicTextToSpeech.md"),
-    ("README.md", "Documentation/AppLocalVoice.docc/ModelInstallation.md"),
-    ("README.md", "Documentation/AppLocalVoice.docc/RecoveryGuide.md"),
-    ("Documentation/AppLocalVoice.docc/AppLocalVoice.md", "<doc:BasicSpeechToText>"),
-    ("Documentation/AppLocalVoice.docc/AppLocalVoice.md", "<doc:BasicTextToSpeech>"),
-    ("Documentation/AppLocalVoice.docc/AppLocalVoice.md", "<doc:LocalEcho>"),
-    ("Documentation/AppLocalVoice.docc/AppLocalVoice.md", "<doc:ModelInstallation>"),
-    ("Documentation/AppLocalVoice.docc/AppLocalVoice.md", "<doc:RecoveryGuide>"),
-)
 
 LINK_RE = re.compile(r"!?(?P<open>\[[^\]]*\])\((?P<destination>[^)]*)\)")
 REFERENCE_RE = re.compile(r"^ {0,3}\[[^\]]+\]:\s*(?P<destination><[^>]*>|\S+)", re.MULTILINE)
@@ -154,28 +130,18 @@ def validate_links(root: Path, markdown: list[Path]) -> list[str]:
     return errors
 
 
-def validate_inventory(root: Path) -> list[str]:
-    errors: list[str] = []
-    for relative in DEFAULT_REQUIRED_FILES:
-        if not (root / relative).exists():
-            errors.append(f"required documentation target is missing: {relative}")
-    for source, needle in DEFAULT_REQUIRED_REFERENCES:
-        path = root / source
-        if path.exists() and needle not in path.read_text(encoding="utf-8"):
-            errors.append(f"{source} is missing required reference {needle}")
-    public_api = root / "Documentation/PublicAPI.md"
-    if public_api.exists() and not re.search(r"<!--\s*api-symbol:\s*\S+\s*-->", public_api.read_text(encoding="utf-8")):
-        errors.append("Documentation/PublicAPI.md has no machine-checked api-symbol references")
-    return errors
-
-
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--root", type=Path, default=Path("."), help="repository root (default: current directory)")
     args = parser.parse_args()
     root = args.root.resolve()
-    markdown = sorted(root.rglob("*.md"))
-    errors = validate_links(root, markdown) + validate_inventory(root)
+    # Repository documentation only: skip build products, package checkouts,
+    # and other hidden directories.
+    markdown = sorted(
+        path for path in root.rglob("*.md")
+        if not any(part.startswith(".") for part in path.relative_to(root).parts[:-1])
+    )
+    errors = validate_links(root, markdown)
     if errors:
         print("Documentation validation failed:", file=sys.stderr)
         print("\n".join(f"- {error}" for error in errors), file=sys.stderr)

@@ -10,11 +10,7 @@ let package = Package(
     targets: [
         .target(name: "AppLocalVoiceAudioEngineSafe", path: "Sources/AppLocalVoiceAudioEngineSafe"),
         .target(name: "AppLocalVoice", dependencies: ["AppLocalVoiceAudioEngineSafe"]),
-        .testTarget(
-            name: "AppLocalVoiceTests",
-            dependencies: ["AppLocalVoice"],
-            exclude: ["AUDIO_SESSION_DEVICE_LIMITS.md", "COVERAGE_LIMITATIONS.md"]
-        )
+        .testTarget(name: "AppLocalVoiceTests", dependencies: ["AppLocalVoice"])
     ],
     swiftLanguageModes: [.v6]
 )

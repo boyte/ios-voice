@@ -30,11 +30,6 @@ xcuserdata/
 # Packaged release output
 dist/
 
-# Device validation writes a raw, machine-local Xcode log beside its report.
-# Keep the sanitized Markdown/JSON report and any deliberately retained,
-# privacy-reviewed evidence trackable.
-Documentation/device-reports/*.log
-
 # Operating-system files
 .DS_Store
 
