@@ -4,6 +4,18 @@ All notable changes to AppLocalVoice are documented here.
 
 ## Unreleased
 
+### Pluggable text-to-speech engines
+
+- Added the public `SpeechSynthesizer` protocol (text in, mono Float32 PCM
+  out) with `SynthesizedSpeech`, and
+  `AppLocalVoice(synthesizer:queueConfiguration:lifecyclePolicy:diagnostics:)`
+  to speak through a plug-in engine. Apple's synthesizer remains the default
+  and `AppLocalVoice()` is unchanged.
+- The package owns chunking, first-chunk-before-audio-session ordering,
+  one-ahead prefetch, playback, interruptions, barge-in, pause/resume, and
+  exact completed-chunk progress for every engine. Engines are host-owned,
+  chosen at construction, and never hot-switched.
+
 ### Completed local audio-file recognition
 
 - Added `RecognitionInput.audioFile` for a completed local recording on iPhone

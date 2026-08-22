@@ -11,6 +11,7 @@ decisions behind it.
 | Recognition | A session ID is assigned at admission. PTT release awaits `finishSession(id:)`; a preview is never a final transcript or a submit action. A session input is either library-owned microphone capture or one completed local audio file. |
 | Readiness | Capability snapshots are side-effect-free. Permission/model preparation is explicit and never opens capture or acquires the audio lease. |
 | Playback | Queue acceptance and playback completion are distinct. Each playback has an identity and one typed terminal outcome. Immediate playback is separate from queue history. |
+| Speech engines | Apple's synthesizer is the default. A host may construct `AppLocalVoice(synthesizer:)` with any `SpeechSynthesizer` (text in, mono Float32 PCM out); the engine is chosen at construction and never hot-switched. The package owns chunking, first-chunk-before-lease ordering, one-ahead prefetch, playback, interruptions, barge-in, and exact completed-chunk progress for every engine. |
 | Audio | Recognition and synthesis never overlap. The library treats `AVAudioSession` as process-wide host state and does not restore stale configuration. |
 | Recovery | Event delivery can fail explicitly. The host reconciles with `runtimeSnapshot()` and uses `recoveryState`; blocked cleanup requires an explicit retry. |
 | Privacy | The library retains no host transcript, TTS text, audio, credentials, voice/device names, or provider text in diagnostics. |

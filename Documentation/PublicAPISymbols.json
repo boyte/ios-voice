@@ -8883,6 +8883,334 @@
       }
     },
     {
+      "precise": "s:13AppLocalVoice17SpeechSynthesizerP",
+      "title": "SpeechSynthesizer",
+      "kind": "swift.protocol",
+      "fingerprint": {
+        "kind": "swift.protocol",
+        "pathComponents": [
+          "SpeechSynthesizer"
+        ],
+        "declarationFragments": [
+          {
+            "kind": "keyword",
+            "spelling": "protocol"
+          },
+          {
+            "kind": "text",
+            "spelling": " "
+          },
+          {
+            "kind": "identifier",
+            "spelling": "SpeechSynthesizer"
+          },
+          {
+            "kind": "text",
+            "spelling": " : "
+          },
+          {
+            "kind": "typeIdentifier",
+            "spelling": "Sendable",
+            "preciseIdentifier": "s:s8SendableP"
+          }
+        ],
+        "availability": null
+      }
+    },
+    {
+      "precise": "s:13AppLocalVoice17SpeechSynthesizerP10sampleRateSdvp",
+      "title": "sampleRate",
+      "kind": "swift.property",
+      "fingerprint": {
+        "kind": "swift.property",
+        "pathComponents": [
+          "SpeechSynthesizer",
+          "sampleRate"
+        ],
+        "declarationFragments": [
+          {
+            "kind": "keyword",
+            "spelling": "var"
+          },
+          {
+            "kind": "text",
+            "spelling": " "
+          },
+          {
+            "kind": "identifier",
+            "spelling": "sampleRate"
+          },
+          {
+            "kind": "text",
+            "spelling": ": "
+          },
+          {
+            "kind": "typeIdentifier",
+            "spelling": "Double",
+            "preciseIdentifier": "s:Sd"
+          },
+          {
+            "kind": "text",
+            "spelling": " { "
+          },
+          {
+            "kind": "keyword",
+            "spelling": "get"
+          },
+          {
+            "kind": "text",
+            "spelling": " }"
+          }
+        ],
+        "availability": null
+      }
+    },
+    {
+      "precise": "s:13AppLocalVoice17SpeechSynthesizerP10synthesize_13configurationAA011SynthesizedD0VSS_AA0D13ConfigurationVtYaKF",
+      "title": "synthesize(_:configuration:)",
+      "kind": "swift.method",
+      "fingerprint": {
+        "kind": "swift.method",
+        "pathComponents": [
+          "SpeechSynthesizer",
+          "synthesize(_:configuration:)"
+        ],
+        "declarationFragments": [
+          {
+            "kind": "keyword",
+            "spelling": "func"
+          },
+          {
+            "kind": "text",
+            "spelling": " "
+          },
+          {
+            "kind": "identifier",
+            "spelling": "synthesize"
+          },
+          {
+            "kind": "text",
+            "spelling": "("
+          },
+          {
+            "kind": "externalParam",
+            "spelling": "_"
+          },
+          {
+            "kind": "text",
+            "spelling": " "
+          },
+          {
+            "kind": "internalParam",
+            "spelling": "text"
+          },
+          {
+            "kind": "text",
+            "spelling": ": "
+          },
+          {
+            "kind": "typeIdentifier",
+            "spelling": "String",
+            "preciseIdentifier": "s:SS"
+          },
+          {
+            "kind": "text",
+            "spelling": ", "
+          },
+          {
+            "kind": "externalParam",
+            "spelling": "configuration"
+          },
+          {
+            "kind": "text",
+            "spelling": ": "
+          },
+          {
+            "kind": "typeIdentifier",
+            "spelling": "SpeechConfiguration",
+            "preciseIdentifier": "s:13AppLocalVoice19SpeechConfigurationV"
+          },
+          {
+            "kind": "text",
+            "spelling": ") "
+          },
+          {
+            "kind": "keyword",
+            "spelling": "async"
+          },
+          {
+            "kind": "text",
+            "spelling": " "
+          },
+          {
+            "kind": "keyword",
+            "spelling": "throws"
+          },
+          {
+            "kind": "text",
+            "spelling": " -> "
+          },
+          {
+            "kind": "typeIdentifier",
+            "spelling": "SynthesizedSpeech",
+            "preciseIdentifier": "s:13AppLocalVoice17SynthesizedSpeechV"
+          }
+        ],
+        "availability": null
+      }
+    },
+    {
+      "precise": "s:13AppLocalVoice17SpeechSynthesizerP15availableVoices3forSayAA0dC0VG10Foundation6LocaleV_tYaF",
+      "title": "availableVoices(for:)",
+      "kind": "swift.method",
+      "fingerprint": {
+        "kind": "swift.method",
+        "pathComponents": [
+          "SpeechSynthesizer",
+          "availableVoices(for:)"
+        ],
+        "declarationFragments": [
+          {
+            "kind": "keyword",
+            "spelling": "func"
+          },
+          {
+            "kind": "text",
+            "spelling": " "
+          },
+          {
+            "kind": "identifier",
+            "spelling": "availableVoices"
+          },
+          {
+            "kind": "text",
+            "spelling": "("
+          },
+          {
+            "kind": "externalParam",
+            "spelling": "for"
+          },
+          {
+            "kind": "text",
+            "spelling": " "
+          },
+          {
+            "kind": "internalParam",
+            "spelling": "locale"
+          },
+          {
+            "kind": "text",
+            "spelling": ": "
+          },
+          {
+            "kind": "typeIdentifier",
+            "spelling": "Locale",
+            "preciseIdentifier": "s:10Foundation6LocaleV"
+          },
+          {
+            "kind": "text",
+            "spelling": ") "
+          },
+          {
+            "kind": "keyword",
+            "spelling": "async"
+          },
+          {
+            "kind": "text",
+            "spelling": " -> ["
+          },
+          {
+            "kind": "typeIdentifier",
+            "spelling": "SpeechVoice",
+            "preciseIdentifier": "s:13AppLocalVoice06SpeechC0V"
+          },
+          {
+            "kind": "text",
+            "spelling": "]"
+          }
+        ],
+        "availability": null
+      }
+    },
+    {
+      "precise": "s:13AppLocalVoice17SpeechSynthesizerP6unloadyyYaF",
+      "title": "unload()",
+      "kind": "swift.method",
+      "fingerprint": {
+        "kind": "swift.method",
+        "pathComponents": [
+          "SpeechSynthesizer",
+          "unload()"
+        ],
+        "declarationFragments": [
+          {
+            "kind": "keyword",
+            "spelling": "func"
+          },
+          {
+            "kind": "text",
+            "spelling": " "
+          },
+          {
+            "kind": "identifier",
+            "spelling": "unload"
+          },
+          {
+            "kind": "text",
+            "spelling": "() "
+          },
+          {
+            "kind": "keyword",
+            "spelling": "async"
+          }
+        ],
+        "availability": null
+      }
+    },
+    {
+      "precise": "s:13AppLocalVoice17SpeechSynthesizerP7prepareyyYaKF",
+      "title": "prepare()",
+      "kind": "swift.method",
+      "fingerprint": {
+        "kind": "swift.method",
+        "pathComponents": [
+          "SpeechSynthesizer",
+          "prepare()"
+        ],
+        "declarationFragments": [
+          {
+            "kind": "keyword",
+            "spelling": "func"
+          },
+          {
+            "kind": "text",
+            "spelling": " "
+          },
+          {
+            "kind": "identifier",
+            "spelling": "prepare"
+          },
+          {
+            "kind": "text",
+            "spelling": "() "
+          },
+          {
+            "kind": "keyword",
+            "spelling": "async"
+          },
+          {
+            "kind": "text",
+            "spelling": " "
+          },
+          {
+            "kind": "keyword",
+            "spelling": "throws"
+          }
+        ],
+        "availability": null
+      }
+    },
+    {
       "precise": "s:13AppLocalVoice17StableChunkPolicyV",
       "title": "StableChunkPolicy",
       "kind": "swift.struct",
@@ -9159,6 +9487,112 @@
             "kind": "typeIdentifier",
             "spelling": "Int",
             "preciseIdentifier": "s:Si"
+          }
+        ],
+        "availability": null
+      }
+    },
+    {
+      "precise": "s:13AppLocalVoice17SynthesizedSpeechV",
+      "title": "SynthesizedSpeech",
+      "kind": "swift.struct",
+      "fingerprint": {
+        "kind": "swift.struct",
+        "pathComponents": [
+          "SynthesizedSpeech"
+        ],
+        "declarationFragments": [
+          {
+            "kind": "keyword",
+            "spelling": "struct"
+          },
+          {
+            "kind": "text",
+            "spelling": " "
+          },
+          {
+            "kind": "identifier",
+            "spelling": "SynthesizedSpeech"
+          }
+        ],
+        "availability": null
+      }
+    },
+    {
+      "precise": "s:13AppLocalVoice17SynthesizedSpeechV7samplesACSaySfG_tcfc",
+      "title": "init(samples:)",
+      "kind": "swift.init",
+      "fingerprint": {
+        "kind": "swift.init",
+        "pathComponents": [
+          "SynthesizedSpeech",
+          "init(samples:)"
+        ],
+        "declarationFragments": [
+          {
+            "kind": "keyword",
+            "spelling": "init"
+          },
+          {
+            "kind": "text",
+            "spelling": "("
+          },
+          {
+            "kind": "externalParam",
+            "spelling": "samples"
+          },
+          {
+            "kind": "text",
+            "spelling": ": ["
+          },
+          {
+            "kind": "typeIdentifier",
+            "spelling": "Float",
+            "preciseIdentifier": "s:Sf"
+          },
+          {
+            "kind": "text",
+            "spelling": "])"
+          }
+        ],
+        "availability": null
+      }
+    },
+    {
+      "precise": "s:13AppLocalVoice17SynthesizedSpeechV7samplesSaySfGvp",
+      "title": "samples",
+      "kind": "swift.property",
+      "fingerprint": {
+        "kind": "swift.property",
+        "pathComponents": [
+          "SynthesizedSpeech",
+          "samples"
+        ],
+        "declarationFragments": [
+          {
+            "kind": "keyword",
+            "spelling": "var"
+          },
+          {
+            "kind": "text",
+            "spelling": " "
+          },
+          {
+            "kind": "identifier",
+            "spelling": "samples"
+          },
+          {
+            "kind": "text",
+            "spelling": ": ["
+          },
+          {
+            "kind": "typeIdentifier",
+            "spelling": "Float",
+            "preciseIdentifier": "s:Sf"
+          },
+          {
+            "kind": "text",
+            "spelling": "]"
           }
         ],
         "availability": null
@@ -16807,6 +17241,126 @@
             "kind": "typeIdentifier",
             "spelling": "VoiceDiagnosticsStream",
             "preciseIdentifier": "s:13AppLocalVoice0C17DiagnosticsStreama"
+          }
+        ],
+        "availability": null
+      }
+    },
+    {
+      "precise": "s:13AppLocalVoiceAAC11synthesizer18queueConfiguration15lifecyclePolicy11diagnosticsAbA17SpeechSynthesizer_p_AA0j5QueueF0VAA014AudioLifecycleH0VyAA0C10DiagnosticVScMYccSgtcfc",
+      "title": "init(synthesizer:queueConfiguration:lifecyclePolicy:diagnostics:)",
+      "kind": "swift.init",
+      "fingerprint": {
+        "kind": "swift.init",
+        "pathComponents": [
+          "AppLocalVoice",
+          "init(synthesizer:queueConfiguration:lifecyclePolicy:diagnostics:)"
+        ],
+        "declarationFragments": [
+          {
+            "kind": "attribute",
+            "spelling": "@"
+          },
+          {
+            "kind": "attribute",
+            "spelling": "MainActor",
+            "preciseIdentifier": "s:ScM"
+          },
+          {
+            "kind": "text",
+            "spelling": " "
+          },
+          {
+            "kind": "keyword",
+            "spelling": "convenience"
+          },
+          {
+            "kind": "text",
+            "spelling": " "
+          },
+          {
+            "kind": "keyword",
+            "spelling": "init"
+          },
+          {
+            "kind": "text",
+            "spelling": "("
+          },
+          {
+            "kind": "externalParam",
+            "spelling": "synthesizer"
+          },
+          {
+            "kind": "text",
+            "spelling": ": "
+          },
+          {
+            "kind": "keyword",
+            "spelling": "any"
+          },
+          {
+            "kind": "text",
+            "spelling": " "
+          },
+          {
+            "kind": "typeIdentifier",
+            "spelling": "SpeechSynthesizer",
+            "preciseIdentifier": "s:13AppLocalVoice17SpeechSynthesizerP"
+          },
+          {
+            "kind": "text",
+            "spelling": ", "
+          },
+          {
+            "kind": "externalParam",
+            "spelling": "queueConfiguration"
+          },
+          {
+            "kind": "text",
+            "spelling": ": "
+          },
+          {
+            "kind": "typeIdentifier",
+            "spelling": "SpeechQueueConfiguration",
+            "preciseIdentifier": "s:13AppLocalVoice24SpeechQueueConfigurationV"
+          },
+          {
+            "kind": "text",
+            "spelling": " = .init(), "
+          },
+          {
+            "kind": "externalParam",
+            "spelling": "lifecyclePolicy"
+          },
+          {
+            "kind": "text",
+            "spelling": ": "
+          },
+          {
+            "kind": "typeIdentifier",
+            "spelling": "AudioLifecyclePolicy",
+            "preciseIdentifier": "s:13AppLocalVoice20AudioLifecyclePolicyV"
+          },
+          {
+            "kind": "text",
+            "spelling": " = .init(), "
+          },
+          {
+            "kind": "externalParam",
+            "spelling": "diagnostics"
+          },
+          {
+            "kind": "text",
+            "spelling": ": "
+          },
+          {
+            "kind": "typeIdentifier",
+            "spelling": "VoiceDiagnosticsSink",
+            "preciseIdentifier": "s:13AppLocalVoice0C15DiagnosticsSinka"
+          },
+          {
+            "kind": "text",
+            "spelling": "? = nil)"
           }
         ],
         "availability": null

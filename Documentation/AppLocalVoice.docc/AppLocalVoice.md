@@ -59,6 +59,8 @@ voice audio on-device and does not use the legacy server-recognition flow.
 - ``SpeechConfiguration``
 - ``SpeechVoice``
 - ``SpeechVoiceQuality``
+- ``SpeechSynthesizer``
+- ``SynthesizedSpeech``
 
 Recognition and synthesis requests are bounded at 1,048,576 UTF-16 code units.
 Oversized text fails closed with the textTooLong error category before the

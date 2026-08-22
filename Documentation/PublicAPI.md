@@ -67,6 +67,26 @@ Simulator evidence does not replace the physical-device matrix.
 - `SpeechVoiceQuality.premium` (swift.enum.case)
 <!-- api-symbol: s:13AppLocalVoice06SpeechC7QualityO8enhancedyA2CmF -->
 - `SpeechVoiceQuality.enhanced` (swift.enum.case)
+<!-- api-symbol: s:13AppLocalVoice17SpeechSynthesizerP -->
+- `SpeechSynthesizer` (swift.protocol)
+<!-- api-symbol: s:13AppLocalVoice17SpeechSynthesizerP10sampleRateSdvp -->
+- `sampleRate` (swift.property)
+<!-- api-symbol: s:13AppLocalVoice17SpeechSynthesizerP10synthesize_13configurationAA011SynthesizedD0VSS_AA0D13ConfigurationVtYaKF -->
+- `synthesize(_:configuration:)` (swift.method)
+<!-- api-symbol: s:13AppLocalVoice17SpeechSynthesizerP15availableVoices3forSayAA0dC0VG10Foundation6LocaleV_tYaF -->
+- `availableVoices(for:)` (swift.method)
+<!-- api-symbol: s:13AppLocalVoice17SpeechSynthesizerP6unloadyyYaF -->
+- `unload()` (swift.method)
+<!-- api-symbol: s:13AppLocalVoice17SpeechSynthesizerP7prepareyyYaKF -->
+- `prepare()` (swift.method)
+<!-- api-symbol: s:13AppLocalVoice17SynthesizedSpeechV -->
+- `SynthesizedSpeech` (swift.struct)
+<!-- api-symbol: s:13AppLocalVoice17SynthesizedSpeechV7samplesACSaySfG_tcfc -->
+- `init(samples:)` (swift.init)
+<!-- api-symbol: s:13AppLocalVoice17SynthesizedSpeechV7samplesSaySfGvp -->
+- `samples` (swift.property)
+<!-- api-symbol: s:13AppLocalVoiceAAC11synthesizer18queueConfiguration15lifecyclePolicy11diagnosticsAbA17SpeechSynthesizer_p_AA0j5QueueF0VAA014AudioLifecycleH0VyAA0C10DiagnosticVScMYccSgtcfc -->
+- `init(synthesizer:queueConfiguration:lifecyclePolicy:diagnostics:)` (swift.init)
 <!-- api-symbol: s:13AppLocalVoice0C10DiagnosticV -->
 - `VoiceDiagnostic` (swift.struct)
 <!-- api-symbol: s:13AppLocalVoice0C10DiagnosticV10routeClassAA0c5RouteF0Ovp -->

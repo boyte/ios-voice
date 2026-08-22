@@ -72,9 +72,41 @@ public final class AppLocalVoice {
         )
     }
 
+    /// Creates a voice service that speaks through a plug-in text-to-speech
+    /// engine instead of Apple's synthesizer.
+    ///
+    /// Recognition, the audio session, the speech queue, events, barge-in,
+    /// pause/resume, and playback progress are the same as the default
+    /// service; only the voice comes from `synthesizer`. Kokoro is one such
+    /// engine; any type conforming to ``SpeechSynthesizer`` works. The engine
+    /// is host-owned so the host can `prepare()` it early or `unload()` it
+    /// on memory pressure.
+    ///
+    /// ```swift
+    /// let voice = AppLocalVoice(synthesizer: engine)
+    /// ```
+    public convenience init(
+        synthesizer: any SpeechSynthesizer,
+        queueConfiguration: SpeechQueueConfiguration = .init(),
+        lifecyclePolicy: AudioLifecyclePolicy = .init(),
+        diagnostics: VoiceDiagnosticsSink? = nil
+    ) {
+        self.init(
+            makeOutput: { audioSession in
+                PCMSpeechOutput(synthesizer: synthesizer, audioSession: audioSession)
+            },
+            diagnostics: diagnostics,
+            runtimeLease: .shared,
+            eventSubscriberRegistry: .shared,
+            queueConfiguration: queueConfiguration,
+            lifecyclePolicy: lifecyclePolicy
+        )
+    }
+
     init(
         input: (any SpeechInput)? = nil,
         output: (any SpeechOutput)? = nil,
+        makeOutput: ((AudioSessionController) -> any SpeechOutput)? = nil,
         diagnostics: VoiceDiagnosticsSink? = nil,
         runtimeLease: ProcessVoiceRuntimeLease = ProcessVoiceRuntimeLease(),
         eventSubscriberRegistry: CanonicalEventSubscriberRegistry =
@@ -87,7 +119,7 @@ public final class AppLocalVoice {
         self.diagnosticsSink = diagnostics
         coordinator = VoiceCoordinator(
             input: input ?? AppleSpeechInput(audioSession: audioSession),
-            output: output ?? AppleSpeechOutput(audioSession: audioSession),
+            output: output ?? makeOutput?(audioSession) ?? AppleSpeechOutput(audioSession: audioSession),
             runtimeLease: runtimeLease,
             eventSubscriberRegistry: eventSubscriberRegistry,
             stableTranscriptClock: stableTranscriptClock,
