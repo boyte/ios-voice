@@ -13,12 +13,6 @@ final class PublicModelContractTests: XCTestCase {
         XCTAssertEqual(fiveSeconds, .recommended)
         XCTAssertEqual(tenSeconds.intervalSeconds, 10)
 
-        let policies: [TranscriptPublicationPolicy] = [
-            .previewAndFinal,
-            .finalOnly,
-            .stableChunks(fiveSeconds)
-        ]
-        XCTAssertEqual(policies.count, 3)
         XCTAssertEqual(
             try StableChunkPolicy(intervalSeconds: StableChunkPolicy.minimumIntervalSeconds)
                 .intervalSeconds,
@@ -37,6 +31,21 @@ final class PublicModelContractTests: XCTestCase {
             .invalidRecognitionConfiguration,
             try StableChunkPolicy(intervalSeconds: 31)
         )
+    }
+
+    func testCompletedAudioFileInputKeepsTheMicrophoneInitializerSourceCompatible() {
+        let microphone = RecognitionSessionConfiguration()
+        let file = RecognitionAudioFile(url: URL(fileURLWithPath: "/tmp/recording.m4a"))
+        let completedFile = RecognitionSessionConfiguration(input: .audioFile(file))
+
+        XCTAssertEqual(microphone.input, .microphone)
+        XCTAssertEqual(completedFile.input, .audioFile(file))
+        XCTAssertEqual(
+            file.maximumDuration,
+            RecognitionAudioFile.defaultMaximumDuration
+        )
+        XCTAssertEqual(RecognitionAudioFile.minimumMaximumDuration, .seconds(1))
+        XCTAssertEqual(RecognitionAudioFile.maximumMaximumDuration, .seconds(7_200))
     }
 
     func testRecognitionEventsExposeAcceptanceAtOrdinalZeroAndStrictOrdering() {
@@ -202,45 +211,7 @@ final class PublicModelContractTests: XCTestCase {
     }
 
     func testQueueVocabularyCoversPlacementOverflowAndControls() throws {
-        let request = try SpeechItemRequest(text: "Speak this", priority: .userInitiated)
         XCTAssertLessThan(SpeechPriority.normal, .userInitiated)
-        XCTAssertEqual(
-            [
-                SpeechEnqueuePolicy.append,
-                .playNext,
-                .replaceCurrent,
-                .replaceAll
-            ].count,
-            4
-        )
-        XCTAssertEqual(
-            [SpeechQueueOverflowPolicy.rejectNew, .dropOldestPending].count,
-            2
-        )
-
-        let commands: [SpeechQueueCommand] = [
-            .enqueue(request, policy: .append),
-            .enqueue(request, policy: .playNext),
-            .enqueue(request, policy: .replaceCurrent),
-            .enqueue(request, policy: .replaceAll),
-            .pause,
-            .resume,
-            .stop,
-            .skip,
-            .clearPending,
-            .stopAndClear,
-            .replay(SpeechItemID(), policy: .playNext)
-        ]
-        XCTAssertEqual(commands.count, 11)
-        XCTAssertEqual(
-            [
-                SpeechControlResult.applied,
-                .alreadyApplied,
-                .noActivePlayback,
-                .providerRejected
-            ].count,
-            4
-        )
 
         assertVoiceError(.invalidSpeechItem, try SpeechItemRequest(text: " \n\t "))
         assertVoiceError(
@@ -306,26 +277,11 @@ final class PublicModelContractTests: XCTestCase {
     func testLifecyclePolicyRecoveryAndCleanupRemainSeparateFromOperationOutcome() {
         let policy = AudioLifecyclePolicy()
         XCTAssertEqual(policy.externalAudio, .duck)
-        XCTAssertEqual(policy.background, .stop)
-        XCTAssertEqual(policy.interruption, .stop)
-        XCTAssertEqual(policy.routeChange, .stopAndRequireRestart)
-        XCTAssertEqual(policy.cleanupFailure, .requireExplicitRetry)
 
         let externalAudioPolicies: [ExternalAudioPolicy] = [.mix, .duck, .interrupt, .reject]
         XCTAssertEqual(
             externalAudioPolicies.map { AudioLifecyclePolicy(externalAudio: $0).externalAudio },
             externalAudioPolicies
-        )
-
-        let cleanupFailure = VoiceError.cleanupPending.failure
-        XCTAssertEqual(VoiceRecoveryState.ready, .ready)
-        XCTAssertEqual(VoiceRecoveryState.reconciling, .reconciling)
-        XCTAssertEqual(VoiceRecoveryState.blocked(cleanupFailure), .blocked(cleanupFailure))
-        XCTAssertEqual(CleanupResult.released, .released)
-        XCTAssertEqual(CleanupResult.blocked(cleanupFailure), .blocked(cleanupFailure))
-        XCTAssertEqual(
-            RecognitionOutcome.interrupted(.appBackground),
-            .interrupted(.appBackground)
         )
     }
 

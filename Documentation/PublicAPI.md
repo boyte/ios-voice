@@ -26,15 +26,17 @@ explicit permission/model-installation boundary and never opens capture. Query
 to decide whether new audio work may begin. Only the app-owned service owner
 calls `close()`; `.blocked` requires an explicit retry.
 
-The public types deliberately contain no backend, chat, persistence, audio,
-or transcript-retention abstraction. Detailed host recipes are in
+The public types deliberately contain no backend, chat, persistence,
+transport, or transcript-retention abstraction. Recognition may read either
+library-owned microphone capture or a host-owned completed local audio file;
+the file path is not a recording, transfer, or retention abstraction. Detailed host recipes are in
 [Quickstart](Quickstart.md), [Recovery](Recovery.md), and
 [Testing](Testing.md).
 
 ## Generated API inventory
 
 The following production-only symbol inventory is generated from the pinned
-toolchain. It is checked against `PublicAPIBaseline.json`; edit public source
+toolchain. It is checked against `PublicAPISymbols.json`; edit public source
 first, then regenerate this evidence with
 `Scripts/emit-public-symbol-graph.sh` and
 `Scripts/generate-public-api-baseline.py`.
@@ -243,10 +245,6 @@ Simulator evidence does not replace the physical-device matrix.
 - `init(state:recoveryState:recognition:queue:generation:)` (swift.init)
 <!-- api-symbol: s:13AppLocalVoice0C15RuntimeSnapshotV5stateAA0C5StateOvp -->
 - `state` (swift.property)
-<!-- api-symbol: s:13AppLocalVoice0C16BackgroundPolicyO -->
-- `VoiceBackgroundPolicy` (swift.enum)
-<!-- api-symbol: s:13AppLocalVoice0C16BackgroundPolicyO4stopyA2CmF -->
-- `VoiceBackgroundPolicy.stop` (swift.enum.case)
 <!-- api-symbol: s:13AppLocalVoice0C16PermissionStatusO -->
 - `VoicePermissionStatus` (swift.enum)
 <!-- api-symbol: s:13AppLocalVoice0C16PermissionStatusO10authorizedyA2CmF -->
@@ -275,10 +273,6 @@ Simulator evidence does not replace the physical-device matrix.
 - `VoiceRecoveryEventKind.ready` (swift.enum.case)
 <!-- api-symbol: s:13AppLocalVoice0C17RecoveryEventKindO7blockedyAcA0C7FailureVcACmF -->
 - `VoiceRecoveryEventKind.blocked(_:)` (swift.enum.case)
-<!-- api-symbol: s:13AppLocalVoice0C17RouteChangePolicyO -->
-- `VoiceRouteChangePolicy` (swift.enum)
-<!-- api-symbol: s:13AppLocalVoice0C17RouteChangePolicyO21stopAndRequireRestartyA2CmF -->
-- `VoiceRouteChangePolicy.stopAndRequireRestart` (swift.enum.case)
 <!-- api-symbol: s:13AppLocalVoice0C17TerminationReasonO -->
 - `VoiceTerminationReason` (swift.enum)
 <!-- api-symbol: s:13AppLocalVoice0C17TerminationReasonO11interruptedyAcA0c12InterruptionE0OcACmF -->
@@ -307,10 +301,6 @@ Simulator evidence does not replace the physical-device matrix.
 - `speechRecognitionPermission` (swift.property)
 <!-- api-symbol: s:13AppLocalVoice0C18CapabilitySnapshotV8featuresSDyAA0C7FeatureOAA0cD12AvailabilityOGvp -->
 - `features` (swift.property)
-<!-- api-symbol: s:13AppLocalVoice0C18InterruptionPolicyO -->
-- `VoiceInterruptionPolicy` (swift.enum)
-<!-- api-symbol: s:13AppLocalVoice0C18InterruptionPolicyO4stopyA2CmF -->
-- `VoiceInterruptionPolicy.stop` (swift.enum.case)
 <!-- api-symbol: s:13AppLocalVoice0C18InterruptionReasonO -->
 - `VoiceInterruptionReason` (swift.enum)
 <!-- api-symbol: s:13AppLocalVoice0C18InterruptionReasonO06systemD0yA2CmF -->
@@ -339,10 +329,6 @@ Simulator evidence does not replace the physical-device matrix.
 - `init(sessionID:state:latestPreview:)` (swift.init)
 <!-- api-symbol: s:13AppLocalVoice0C19RecognitionSnapshotV9sessionIDAA0d7SessionG0Vvp -->
 - `sessionID` (swift.property)
-<!-- api-symbol: s:13AppLocalVoice0C20CleanupFailurePolicyO -->
-- `VoiceCleanupFailurePolicy` (swift.enum)
-<!-- api-symbol: s:13AppLocalVoice0C20CleanupFailurePolicyO20requireExplicitRetryyA2CmF -->
-- `VoiceCleanupFailurePolicy.requireExplicitRetry` (swift.enum.case)
 <!-- api-symbol: s:13AppLocalVoice0C22CapabilityAvailabilityO -->
 - `VoiceCapabilityAvailability` (swift.enum)
 <!-- api-symbol: s:13AppLocalVoice0C22CapabilityAvailabilityO11unavailableyAcA0C7FailureVcACmF -->
@@ -603,24 +589,6 @@ Simulator evidence does not replace the physical-device matrix.
 - `RecognitionOutcome.cancelled` (swift.enum.case)
 <!-- api-symbol: s:13AppLocalVoice18RecognitionOutcomeO9completedyA2CmF -->
 - `RecognitionOutcome.completed` (swift.enum.case)
-<!-- api-symbol: s:13AppLocalVoice18SpeechQueueCommandO -->
-- `SpeechQueueCommand` (swift.enum)
-<!-- api-symbol: s:13AppLocalVoice18SpeechQueueCommandO12clearPendingyA2CmF -->
-- `SpeechQueueCommand.clearPending` (swift.enum.case)
-<!-- api-symbol: s:13AppLocalVoice18SpeechQueueCommandO12stopAndClearyA2CmF -->
-- `SpeechQueueCommand.stopAndClear` (swift.enum.case)
-<!-- api-symbol: s:13AppLocalVoice18SpeechQueueCommandO4skipyA2CmF -->
-- `SpeechQueueCommand.skip` (swift.enum.case)
-<!-- api-symbol: s:13AppLocalVoice18SpeechQueueCommandO4stopyA2CmF -->
-- `SpeechQueueCommand.stop` (swift.enum.case)
-<!-- api-symbol: s:13AppLocalVoice18SpeechQueueCommandO5pauseyA2CmF -->
-- `SpeechQueueCommand.pause` (swift.enum.case)
-<!-- api-symbol: s:13AppLocalVoice18SpeechQueueCommandO6replayyAcA0D6ItemIDV_AA0D13EnqueuePolicyOtcACmF -->
-- `SpeechQueueCommand.replay(_:policy:)` (swift.enum.case)
-<!-- api-symbol: s:13AppLocalVoice18SpeechQueueCommandO6resumeyA2CmF -->
-- `SpeechQueueCommand.resume` (swift.enum.case)
-<!-- api-symbol: s:13AppLocalVoice18SpeechQueueCommandO7enqueueyAcA0D11ItemRequestV_AA0D13EnqueuePolicyOtcACmF -->
-- `SpeechQueueCommand.enqueue(_:policy:)` (swift.enum.case)
 <!-- api-symbol: s:13AppLocalVoice19EventDeliveryCursorO -->
 - `EventDeliveryCursor` (swift.enum)
 <!-- api-symbol: s:13AppLocalVoice19EventDeliveryCursorO11recognitionyAcA20RecognitionSessionIDV_s6UInt64VtcACmF -->
@@ -659,10 +627,6 @@ Simulator evidence does not replace the physical-device matrix.
 - `SpeechControlResult` (swift.enum)
 <!-- api-symbol: s:13AppLocalVoice19SpeechControlResultO14alreadyAppliedyA2CmF -->
 - `SpeechControlResult.alreadyApplied` (swift.enum.case)
-<!-- api-symbol: s:13AppLocalVoice19SpeechControlResultO16noActivePlaybackyA2CmF -->
-- `SpeechControlResult.noActivePlayback` (swift.enum.case)
-<!-- api-symbol: s:13AppLocalVoice19SpeechControlResultO16providerRejectedyA2CmF -->
-- `SpeechControlResult.providerRejected` (swift.enum.case)
 <!-- api-symbol: s:13AppLocalVoice19SpeechControlResultO7appliedyA2CmF -->
 - `SpeechControlResult.applied` (swift.enum.case)
 <!-- api-symbol: s:13AppLocalVoice19SpeechEnqueuePolicyO -->
@@ -699,18 +663,8 @@ Simulator evidence does not replace the physical-device matrix.
 - `durationMilliseconds` (swift.property)
 <!-- api-symbol: s:13AppLocalVoice20AudioLifecyclePolicyV -->
 - `AudioLifecyclePolicy` (swift.struct)
-<!-- api-symbol: s:13AppLocalVoice20AudioLifecyclePolicyV08externalD010background12interruption11routeChange14cleanupFailureAcA08ExternaldF0O_AA0c10BackgroundF0OAA0c12InterruptionF0OAA0c5RoutekF0OAA0c7CleanupmF0Otcfc -->
-- `init(externalAudio:background:interruption:routeChange:cleanupFailure:)` (swift.init)
 <!-- api-symbol: s:13AppLocalVoice20AudioLifecyclePolicyV08externalD0AA08ExternaldF0Ovp -->
 - `externalAudio` (swift.property)
-<!-- api-symbol: s:13AppLocalVoice20AudioLifecyclePolicyV10backgroundAA0c10BackgroundF0Ovp -->
-- `background` (swift.property)
-<!-- api-symbol: s:13AppLocalVoice20AudioLifecyclePolicyV11routeChangeAA0c5RoutehF0Ovp -->
-- `routeChange` (swift.property)
-<!-- api-symbol: s:13AppLocalVoice20AudioLifecyclePolicyV12interruptionAA0c12InterruptionF0Ovp -->
-- `interruption` (swift.property)
-<!-- api-symbol: s:13AppLocalVoice20AudioLifecyclePolicyV14cleanupFailureAA0c7CleanuphF0Ovp -->
-- `cleanupFailure` (swift.property)
 <!-- api-symbol: s:13AppLocalVoice20RecognitionEventKindO -->
 - `RecognitionEventKind` (swift.enum)
 <!-- api-symbol: s:13AppLocalVoice20RecognitionEventKindO10isAcceptedSbvp -->
@@ -959,6 +913,26 @@ Simulator evidence does not replace the physical-device matrix.
 - `maximumDurableEventCountPerSubscriber` (swift.type.property)
 <!-- api-symbol: s:13AppLocalVoice30RecognitionEventDeliveryLimitsO22maximumSubscriberCountSivpZ -->
 - `maximumSubscriberCount` (swift.type.property)
+<!-- api-symbol: s:13AppLocalVoice20RecognitionAudioFileV -->
+- `RecognitionAudioFile` (swift.struct)
+<!-- api-symbol: s:13AppLocalVoice20RecognitionAudioFileV22defaultMaximumDurations0I0VvpZ -->
+- `defaultMaximumDuration` (swift.type.property)
+<!-- api-symbol: s:13AppLocalVoice20RecognitionAudioFileV22maximumMaximumDurations0I0VvpZ -->
+- `maximumMaximumDuration` (swift.type.property)
+<!-- api-symbol: s:13AppLocalVoice20RecognitionAudioFileV22minimumMaximumDurations0I0VvpZ -->
+- `minimumMaximumDuration` (swift.type.property)
+<!-- api-symbol: s:13AppLocalVoice20RecognitionAudioFileV15maximumDurations0H0Vvp -->
+- `maximumDuration` (swift.property)
+<!-- api-symbol: s:13AppLocalVoice20RecognitionAudioFileV3url10Foundation3URLVvp -->
+- `url` (swift.property)
+<!-- api-symbol: s:13AppLocalVoice20RecognitionAudioFileV3url15maximumDurationAC10Foundation3URLV_s0I0Vtcfc -->
+- `init(url:maximumDuration:)` (swift.init)
+<!-- api-symbol: s:13AppLocalVoice16RecognitionInputO -->
+- `RecognitionInput` (swift.enum)
+<!-- api-symbol: s:13AppLocalVoice16RecognitionInputO10microphoneyA2CmF -->
+- `RecognitionInput.microphone` (swift.enum.case)
+<!-- api-symbol: s:13AppLocalVoice16RecognitionInputO9audioFileyAcA0d5AudioG0VcACmF -->
+- `RecognitionInput.audioFile(_:)` (swift.enum.case)
 <!-- api-symbol: s:13AppLocalVoice31RecognitionSessionConfigurationV -->
 - `RecognitionSessionConfiguration` (swift.struct)
 <!-- api-symbol: s:13AppLocalVoice31RecognitionSessionConfigurationV014defaultMaximumD8Durations0I0VvpZ -->
@@ -971,6 +945,10 @@ Simulator evidence does not replace the physical-device matrix.
 - `maximumRecognitionDuration` (swift.property)
 <!-- api-symbol: s:13AppLocalVoice31RecognitionSessionConfigurationV11recognition17publicationPolicy09lifecycleI007maximumD8DurationAcA0dF0V_AA021TranscriptPublicationI0OAA014AudioLifecycleI0Vs0L0VSgtcfc -->
 - `init(recognition:publicationPolicy:lifecyclePolicy:maximumRecognitionDuration:)` (swift.init)
+<!-- api-symbol: s:13AppLocalVoice31RecognitionSessionConfigurationV11recognition5input17publicationPolicy09lifecycleJ007maximumD8DurationAcA0dF0V_AA0D5InputOAA021TranscriptPublicationJ0OAA014AudioLifecycleJ0Vs0M0VSgtcfc -->
+- `init(recognition:input:publicationPolicy:lifecyclePolicy:maximumRecognitionDuration:)` (swift.init)
+<!-- api-symbol: s:13AppLocalVoice31RecognitionSessionConfigurationV5inputAA0D5InputOvp -->
+- `input` (swift.property)
 <!-- api-symbol: s:13AppLocalVoice31RecognitionSessionConfigurationV11recognitionAA0dF0Vvp -->
 - `recognition` (swift.property)
 <!-- api-symbol: s:13AppLocalVoice31RecognitionSessionConfigurationV15lifecyclePolicyAA014AudioLifecycleH0Vvp -->
@@ -1045,3 +1023,5 @@ Simulator evidence does not replace the physical-device matrix.
 - `stopAndClearSpeechQueue()` (swift.method)
 <!-- api-symbol: s:13AppLocalVoiceAAC5closeAA13CleanupResultOyYaF -->
 - `close()` (swift.method)
+<!-- api-symbol: s:13AppLocalVoice20AudioLifecyclePolicyV08externalD0AcA08ExternaldF0O_tcfc -->
+- `init(externalAudio:)` (swift.init)

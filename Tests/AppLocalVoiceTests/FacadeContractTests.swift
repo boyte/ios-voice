@@ -11,10 +11,10 @@ final class FacadeContractTests: XCTestCase {
         let input = ControlledSpeechInput()
         let output = ControlledSpeechOutput()
         let voice = AppLocalVoice(input: input, output: output)
-        let stream = await voice.events()
+        let stream = await voice.voiceEvents()
 
-        try await voice.speak("")
-        try await voice.speak(" \n\t ")
+        try await voice.speakNow("")
+        try await voice.speakNow(" \n\t ")
 
         let starts = await output.starts
         let state = await voice.state
@@ -23,12 +23,24 @@ final class FacadeContractTests: XCTestCase {
 
         // The stream remains open and has no speech lifecycle events for
         // either no-op request. A later turn proves it was not terminated.
-        try await voice.startListening()
-        await voice.cancelListening()
-        let events = await collectFacadeEventsThroughListeningFinished(stream)
-        XCTAssertFalse(events.contains(.speechStarted))
-        XCTAssertFalse(events.contains(.speechFinished))
-        XCTAssertFalse(events.contains(.speechCancelled))
+        let eventsTask = Task {
+            try await collectEvents(stream) { event in
+                if case .recognition(let recognition) = event { return recognition.kind.isTerminal }
+                return false
+            }
+        }
+        try await voice.startTurn()
+        await voice.cancelTurn()
+        let events = try await withBoundedTimeout { try await eventsTask.value }
+        let speechEvents = events.filter { event in
+            if case .speechQueue = event { return true }
+            return false
+        }
+        XCTAssertTrue(speechEvents.isEmpty)
+        XCTAssertTrue(events.contains { event in
+            if case .recognition(let recognition) = event { return recognition.kind == .outcome(.cancelled) }
+            return false
+        })
         await voice.close()
     }
 
@@ -50,9 +62,13 @@ final class FacadeContractTests: XCTestCase {
         let output = ForwardingOutput(voices: voices)
         let voice = AppLocalVoice(input: input, output: output)
 
-        let returnedCapabilities = await voice.capabilities(for: locale)
+        let snapshot = await voice.capabilitySnapshot(for: locale)
         let returnedVoices = await voice.availableVoices(for: locale)
-        XCTAssertEqual(returnedCapabilities, capabilities)
+        XCTAssertEqual(snapshot.recognition.requestedLocale, locale)
+        XCTAssertEqual(snapshot.recognition.resolvedLocale, locale)
+        XCTAssertEqual(snapshot.recognition.modelReadiness, .installed)
+        XCTAssertEqual(snapshot.recognition.availability, .available)
+        XCTAssertEqual(snapshot.installedVoices, voices)
         XCTAssertEqual(returnedVoices, voices)
         let forwardedInputLocale = await input.lastLocale
         let forwardedOutputLocale = await output.lastLocale
@@ -66,17 +82,22 @@ final class FacadeContractTests: XCTestCase {
         let output = ControlledSpeechOutput()
         let voice = AppLocalVoice(input: input, output: output)
 
-        try await voice.startListening()
+        try await voice.startTurn()
         let listeningState = await voice.state
         XCTAssertEqual(listeningState, .listening)
-        await voice.cancelListening()
+        await voice.cancelTurn()
 
-        let speech = Task { try await voice.speak("active") }
+        let speech = Task { try await voice.speakNow("active") }
         await output.waitUntilStarted()
         let speakingState = await voice.state
         XCTAssertEqual(speakingState, .speaking)
         await voice.stopSpeaking()
-        _ = try? await speech.value
+        do {
+            try await speech.value
+            XCTFail("stopped speech must be cancelled")
+        } catch let error as VoiceError {
+            XCTAssertEqual(error, .cancelled)
+        }
 
         let idleState = await voice.state
         XCTAssertEqual(idleState, .idle)
@@ -87,7 +108,7 @@ final class FacadeContractTests: XCTestCase {
         let output = PreflightBlockingSpeechOutput()
         let voice = AppLocalVoice(input: ControlledSpeechInput(), output: output)
 
-        let speech = Task { try await voice.speak("must not start") }
+        let speech = Task { try await voice.speakNow("must not start") }
         await output.waitUntilPreflightEntered()
         await voice.stopSpeaking()
         await output.releasePreflight()
@@ -105,13 +126,34 @@ final class FacadeContractTests: XCTestCase {
         await voice.close()
     }
 
+    func testStoppingSpeechDuringRecognitionPreflightDoesNotCancelRecognition() async throws {
+        let output = PreflightBlockingSpeechOutput()
+        let voice = AppLocalVoice(input: ControlledSpeechInput(), output: output)
+
+        let recognition = Task { try await voice.startSession() }
+        await output.waitUntilPreflightEntered()
+        await voice.stopSpeaking()
+        await output.releasePreflight()
+
+        let acceptance = try await recognition.value
+        let clock = ContinuousClock()
+        let deadline = clock.now.advanced(by: .seconds(2))
+        while await voice.state != .listening, clock.now < deadline {
+            await Task.yield()
+        }
+        let state = await voice.state
+        XCTAssertEqual(state, .listening)
+        await voice.cancelSession(id: acceptance.sessionID)
+        await voice.close()
+    }
+
     func testFacadeExposesUnresolvedCleanupAsFailedUntilCloseReconciles() async throws {
         let input = ControlledSpeechInput()
         await input.setCleanupBlocked(true)
         let voice = AppLocalVoice(input: input, output: ControlledSpeechOutput())
 
-        try await voice.startListening()
-        await voice.cancelListening()
+        try await voice.startTurn()
+        await voice.cancelTurn()
         let failedState = await voice.state
         XCTAssertEqual(failedState, .failed)
 
@@ -122,11 +164,11 @@ final class FacadeContractTests: XCTestCase {
     }
 
     func testPublicStateSnapshotExposesFinalizing() async throws {
-        let input = BlockingFinalizationInput()
+        let input = CompletableStopInput()
         let voice = AppLocalVoice(input: input, output: ControlledSpeechOutput())
 
-        try await voice.startListening()
-        let finishing = Task { try await voice.finishListening() }
+        try await voice.startTurn()
+        let finishing = Task { try await voice.finishTurn() }
         await input.waitUntilStopEntered()
 
         let finalizingState = await voice.state
@@ -140,13 +182,15 @@ final class FacadeContractTests: XCTestCase {
     func testPublicTTSStartPauseResumeAndStopHaveExactlyOneTerminalEvent() async throws {
         let output = ControlledSpeechOutput()
         let voice = AppLocalVoice(input: ControlledSpeechInput(), output: output)
-        let stream = await voice.events()
-        let eventsTask = Task { await collectSpeechEvents(stream) }
-        let speech = Task { try await voice.speak("hello") }
+        let stream = await voice.voiceEvents()
+        let acceptance = try await voice.enqueueSpeech("hello")
+        let kindsTask = Task { try await collectSpeechKinds(stream, playbackID: acceptance.playbackID) }
 
         await output.waitUntilStarted()
-        await voice.pauseSpeaking()
-        await voice.resumeSpeaking()
+        let pauseResult = await voice.pauseSpeechQueue()
+        let resumeResult = await voice.resumeSpeechQueue()
+        XCTAssertEqual(pauseResult, .applied)
+        XCTAssertEqual(resumeResult, .applied)
         let pauseCount = await output.pauses
         let resumeCount = await output.resumes
         XCTAssertEqual(pauseCount, 1)
@@ -154,39 +198,40 @@ final class FacadeContractTests: XCTestCase {
 
         await voice.stopSpeaking()
         do {
-            _ = try await speech.value
+            try await voice.awaitPlayback(acceptance.playbackID)
             XCTFail("stopped speech must be cancelled")
         } catch let error as VoiceError {
             XCTAssertEqual(error, .cancelled)
         }
 
-        let events = await eventsTask.value
-        let terminals = events.filter { event in
-            switch event {
-            case .speechFinished, .speechCancelled, .failure: return true
-            default: return false
-            }
+        let kinds = try await withBoundedTimeout { try await kindsTask.value }
+        // `.paused`/`.resumed` are advisory controls and may coalesce for a
+        // subscriber that has not pulled yet; the provider counters above
+        // prove both controls reached the output.
+        XCTAssertEqual(
+            kinds.filter { $0 != .paused && $0 != .resumed },
+            [.accepted, .started, .outcome(.cancelled(.stopped))]
+        )
+        if let paused = kinds.firstIndex(of: .paused), let resumed = kinds.firstIndex(of: .resumed) {
+            XCTAssertLessThan(paused, resumed)
         }
-        XCTAssertEqual(terminals, [.speechCancelled])
+        XCTAssertEqual(kinds.filter(\.isTerminal), [.outcome(.cancelled(.stopped))])
         await voice.close()
     }
 
     func testPublicTTSCompletionHasExactlyOneFinishedEvent() async throws {
         let output = ControlledSpeechOutput()
         let voice = AppLocalVoice(input: ControlledSpeechInput(), output: output)
-        let stream = await voice.events()
-        let eventsTask = Task { await collectSpeechEvents(stream) }
-        let speech = Task { try await voice.speak("hello") }
+        let acceptance = try await voice.speakImmediately("hello")
 
         await output.waitUntilStarted()
         await output.complete(.success(()))
-        try await speech.value
-
-        let events = await eventsTask.value
-        XCTAssertEqual(
-            events.filter { $0 == .speechFinished || $0 == .speechCancelled || isFailure($0) },
-            [.speechFinished]
-        )
+        // Immediate playback has no queue history; its terminal truth is the
+        // playback result, which every observer receives identically.
+        let first = try await withBoundedTimeout { try await voice.waitForSpeechPlayback(id: acceptance.playbackID) }
+        let second = try await voice.waitForSpeechPlayback(id: acceptance.playbackID)
+        XCTAssertEqual(first.outcome, .finished)
+        XCTAssertEqual(second, first)
         await voice.close()
     }
 
@@ -194,28 +239,22 @@ final class FacadeContractTests: XCTestCase {
         let output = ControlledSpeechOutput()
         await output.setFailure(HarnessFailure(stage: .speech, message: "fixture failure"))
         let voice = AppLocalVoice(input: ControlledSpeechInput(), output: output)
-        let stream = await voice.events()
-        let eventsTask = Task { await collectSpeechEvents(stream) }
 
+        let acceptance = try await voice.speakImmediately("hello")
         do {
-            try await voice.speak("hello")
+            try await withBoundedTimeout { try await voice.awaitPlayback(acceptance.playbackID) }
             XCTFail("expected synthesis failure")
         } catch let error as HarnessFailure {
             XCTAssertEqual(error.message, "fixture failure")
         }
-
-        let events = await eventsTask.value
-        let terminals = events.filter { event in
-            switch event {
-            case .speechFinished, .speechCancelled, .failure: return true
-            default: return false
-            }
+        // The terminal failure is stable: a second observer sees the same error.
+        do {
+            _ = try await voice.waitForSpeechPlayback(id: acceptance.playbackID)
+            XCTFail("expected the recorded failure to be rethrown")
+        } catch let error as HarnessFailure {
+            XCTAssertEqual(error.message, "fixture failure")
         }
-        XCTAssertEqual(terminals.count, 1)
-        guard let first = terminals.first, case .failure = first else {
-            XCTFail("expected one failure terminal event")
-            return
-        }
+        await waitForState(.idle, voice: voice)
         let state = await voice.state
         XCTAssertEqual(state, .idle)
         await voice.close()
@@ -224,69 +263,37 @@ final class FacadeContractTests: XCTestCase {
     func testDuplicateFinalUpdatesProduceAtMostOnePublicFinalSnapshot() async throws {
         let input = ControlledSpeechInput()
         let voice = AppLocalVoice(input: input, output: ControlledSpeechOutput())
-        let stream = await voice.events()
-        let eventsTask = Task { await collectFacadeEventsThroughListeningFinished(stream) }
+        let stream = await voice.voiceEvents()
+        let kindsTask = Task { try await collectRecognitionKinds(stream) }
 
-        try await voice.startListening()
+        try await voice.startTurn()
         let final = TranscriptUpdate(text: "final", isFinal: true)
         await input.send(final)
         await input.send(final)
-        _ = try await voice.finishListening()
+        _ = try await voice.finishTurn()
 
-        let events = await eventsTask.value
-        XCTAssertEqual(events.filter { event in
-            if case .transcript(let update) = event { return update.isFinal }
-            return false
-        }.count, 1)
+        let kinds = try await withBoundedTimeout { try await kindsTask.value }
+        XCTAssertEqual(kinds.filter(\.isFinalTranscript).count, 1)
         await voice.close()
     }
 
     func testEventStreamRemainsUsableAfterClose() async throws {
         let input = ControlledSpeechInput()
         let voice = AppLocalVoice(input: input, output: ControlledSpeechOutput())
-        let stream = await voice.events()
+        let stream = await voice.voiceEvents()
 
         await voice.close()
-        try await voice.startListening()
+        let kindsTask = Task { try await collectRecognitionKinds(stream) }
+        try await voice.startTurn()
         let activeState = await voice.state
         XCTAssertEqual(activeState, .listening)
-        await voice.cancelListening()
+        await voice.cancelTurn()
 
-        let events = await collectFacadeEventsThroughListeningFinished(stream)
-        XCTAssertTrue(events.contains(.stateChanged(.listening)))
-        XCTAssertEqual(events.last, .listeningFinished(.cancelled))
+        let kinds = try await withBoundedTimeout { try await kindsTask.value }
+        XCTAssertTrue(kinds.contains(.stateChanged(.listening)))
+        XCTAssertEqual(kinds.last, .outcome(.cancelled))
         await voice.close()
     }
-}
-
-private func isFailure(_ event: VoiceEvent) -> Bool {
-    if case .failure = event { return true }
-    return false
-}
-
-private func collectFacadeEventsThroughListeningFinished(
-    _ stream: AsyncStream<VoiceEvent>
-) async -> [VoiceEvent] {
-    var events: [VoiceEvent] = []
-    for await event in stream {
-        events.append(event)
-        if case .listeningFinished = event { break }
-    }
-    return events
-}
-
-private func collectSpeechEvents(_ stream: AsyncStream<VoiceEvent>) async -> [VoiceEvent] {
-    var events: [VoiceEvent] = []
-    for await event in stream {
-        events.append(event)
-        switch event {
-        case .speechFinished, .speechCancelled, .failure:
-            return events
-        default:
-            continue
-        }
-    }
-    return events
 }
 
 private actor ForwardingInput: SpeechInput {
@@ -300,10 +307,10 @@ private actor ForwardingInput: SpeechInput {
         return capabilitiesValue
     }
 
-    func requestAuthorization() async -> SpeechAuthorization { .authorized }
+    func requestAuthorization() async -> VoicePermissionStatus { .authorized }
     func requestMicrophonePermission() async -> Bool { true }
 
-    func start(configuration: RecognitionConfiguration) async throws -> AsyncThrowingStream<TranscriptUpdate, Error> {
+    func start(configuration: RecognitionConfiguration, input: RecognitionInput, lifecyclePolicy: AudioLifecyclePolicy) async throws -> AsyncThrowingStream<TranscriptUpdate, Error> {
         AsyncThrowingStream { $0.finish() }
     }
 
@@ -322,7 +329,7 @@ private actor ForwardingOutput: SpeechOutput {
         return voices
     }
 
-    func speak(_ text: String, configuration: SpeechConfiguration) async throws {}
+    func speak(_ text: String, configuration: SpeechConfiguration, lifecyclePolicy: AudioLifecyclePolicy) async throws {}
     func pause() async {}
     func resume() async {}
     func stop() async {}
@@ -336,7 +343,7 @@ private actor PreflightBlockingSpeechOutput: SpeechOutput {
 
     func availableVoices(for locale: Locale) async -> [SpeechVoice] { [] }
 
-    func speak(_ text: String, configuration: SpeechConfiguration) async throws {
+    func speak(_ text: String, configuration: SpeechConfiguration, lifecyclePolicy: AudioLifecyclePolicy) async throws {
         starts += 1
     }
 
@@ -369,7 +376,9 @@ private actor PreflightBlockingSpeechOutput: SpeechOutput {
     }
 }
 
-private actor BlockingFinalizationInput: SpeechInput {
+/// Blocks inside `stop()` until the test completes it with a final transcript
+/// via `completeStop()`, so the finalizing state is observable.
+private actor CompletableStopInput: SpeechInput {
     private var stopContinuation: CheckedContinuation<String, Error>?
     private var stopEnteredWaiters: [CheckedContinuation<Void, Never>] = []
     private var streamContinuation: AsyncThrowingStream<TranscriptUpdate, Error>.Continuation?
@@ -378,10 +387,10 @@ private actor BlockingFinalizationInput: SpeechInput {
         SpeechCapabilities(locale: locale, isSupported: true, supportsOnDevice: true)
     }
 
-    func requestAuthorization() async -> SpeechAuthorization { .authorized }
+    func requestAuthorization() async -> VoicePermissionStatus { .authorized }
     func requestMicrophonePermission() async -> Bool { true }
 
-    func start(configuration: RecognitionConfiguration) async throws -> AsyncThrowingStream<TranscriptUpdate, Error> {
+    func start(configuration: RecognitionConfiguration, input: RecognitionInput, lifecyclePolicy: AudioLifecyclePolicy) async throws -> AsyncThrowingStream<TranscriptUpdate, Error> {
         AsyncThrowingStream { continuation in
             streamContinuation = continuation
         }

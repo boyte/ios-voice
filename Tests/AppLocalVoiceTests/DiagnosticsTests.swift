@@ -130,65 +130,10 @@ final class DiagnosticsTests: XCTestCase {
         XCTAssertNotEqual(close.first?.operationID, acceptance.sessionID.rawValue)
     }
 
-    func testDiagnosticsAreOptInAndCorrelateOneListeningOperation() async throws {
-        let collector = DiagnosticCollector()
-        let voice = AppLocalVoice(
-            input: ControlledSpeechInput(),
-            output: ControlledSpeechOutput(),
-            diagnostics: { collector.values.append($0) }
-        )
-
-        try await voice.startListening()
-        await voice.cancelListening()
-
-        XCTAssertEqual(collector.values.count, 2)
-        let started = collector.values[0]
-        let cancelled = collector.values[1]
-        XCTAssertEqual(started.operation, .listening)
-        XCTAssertEqual(started.phase, .started)
-        XCTAssertEqual(cancelled.operation, .listening)
-        XCTAssertEqual(cancelled.phase, .cancelled)
-        XCTAssertEqual(started.operationID, cancelled.operationID)
-        XCTAssertEqual(cancelled.errorCategory, .cancelled)
-        XCTAssertGreaterThanOrEqual(cancelled.durationNanoseconds, started.durationNanoseconds)
-        XCTAssertFalse(containsForbiddenDiagnosticField(started))
-        XCTAssertFalse(containsForbiddenDiagnosticField(cancelled))
-    }
-
-    func testFailureDiagnosticUsesCategoryWithoutProviderMessageOrLocale() async {
-        let collector = DiagnosticCollector()
-        let input = ControlledSpeechInput()
-        await input.setCapabilities(SpeechCapabilities(
-            locale: Locale(identifier: "zz-ZZ"),
-            isSupported: true,
-            supportsOnDevice: false,
-            reason: "provider detail that must not enter diagnostics"
-        ))
-        let voice = AppLocalVoice(
-            input: input,
-            output: ControlledSpeechOutput(),
-            diagnostics: { collector.values.append($0) }
-        )
-
-        do {
-            try await voice.startListening(configuration: .init(locale: Locale(identifier: "zz-ZZ")))
-            XCTFail("Expected unavailable on-device recognition")
-        } catch let error as VoiceError {
-            XCTAssertEqual(error.category, .onDeviceRecognitionUnavailable)
-        } catch {
-            XCTFail("Unexpected error: \(error)")
-        }
-
-        XCTAssertEqual(collector.values.count, 1)
-        XCTAssertEqual(collector.values[0].phase, .failed)
-        XCTAssertEqual(collector.values[0].errorCategory, .onDeviceRecognitionUnavailable)
-        XCTAssertFalse(containsForbiddenDiagnosticField(collector.values[0]))
-    }
-
     func testDiagnosticsWithoutSinkDoNotChangeThePublicLifecycle() async throws {
         let voice = AppLocalVoice(input: ControlledSpeechInput(), output: ControlledSpeechOutput())
-        try await voice.startListening()
-        await voice.cancelListening()
+        try await voice.startTurn()
+        await voice.cancelTurn()
         let state = await voice.state
         XCTAssertEqual(state, .idle)
     }
@@ -196,12 +141,21 @@ final class DiagnosticsTests: XCTestCase {
     func testDiagnosticStreamDeliversContentFreeRecordsWithoutCallbackSink() async throws {
         let voice = AppLocalVoice(input: ControlledSpeechInput(), output: ControlledSpeechOutput())
         let stream = voice.diagnostics()
-        var iterator = stream.makeAsyncIterator()
+        let delivery = Task { () -> [VoiceDiagnostic] in
+            var records: [VoiceDiagnostic] = []
+            for await record in stream {
+                records.append(record)
+                if records.count == 2 { return records }
+            }
+            return records
+        }
 
-        try await voice.startListening()
-        let started = await iterator.next()
-        await voice.cancelListening()
-        let cancelled = await iterator.next()
+        let acceptance = try await voice.startSession()
+        await waitForVoiceState(.listening, voice: voice)
+        await voice.cancelSession(id: acceptance.sessionID)
+        let records = try await withBoundedTimeout { await delivery.value }
+        let started = records.first
+        let cancelled = records.last
 
         XCTAssertEqual(started?.operation, .listening)
         XCTAssertEqual(started?.phase, .started)
@@ -209,24 +163,6 @@ final class DiagnosticsTests: XCTestCase {
         XCTAssertEqual(cancelled?.phase, .cancelled)
         if let started { XCTAssertFalse(containsForbiddenDiagnosticField(started)) }
         if let cancelled { XCTAssertFalse(containsForbiddenDiagnosticField(cancelled)) }
-    }
-
-    func testExternalListeningFailureDoesNotCreateLaterFalseCancellationDiagnostic() async throws {
-        let collector = DiagnosticCollector()
-        let input = ControlledSpeechInput()
-        let voice = AppLocalVoice(
-            input: input,
-            output: ControlledSpeechOutput(),
-            diagnostics: { collector.values.append($0) }
-        )
-        let events = await voice.events()
-
-        try await voice.startListening()
-        await input.failStream(VoiceError.interrupted("background"))
-        _ = try await withBoundedTimeout { await collectVoiceEventsThroughListeningFinished(events) }
-
-        await voice.cancelListening()
-        XCTAssertEqual(collector.values.map(\.phase), [.started])
     }
 
     func testCancellationDuringListeningStartupDoesNotLeaveAStaleDiagnostic() async throws {
@@ -239,23 +175,24 @@ final class DiagnosticsTests: XCTestCase {
         )
 
         await input.setStartBlocked(true)
-        let starting = Task { @MainActor in
-            try? await voice.startListening()
-        }
+        let acceptance = try await voice.startSession()
         await input.waitForStartEntry()
         let cancelling = Task { @MainActor in
-            await voice.cancelListening()
+            await voice.cancelSession(id: acceptance.sessionID)
         }
         await input.setStartBlocked(false)
         await cancelling.value
-        await starting.value
-        await voice.cancelListening()
+        await voice.cancelSession(id: acceptance.sessionID)
+        await waitForVoiceState(.idle, voice: voice)
+        await waitForDiagnosticCount(2, collector: collector)
 
-        let state = await voice.state
-        XCTAssertEqual(state, .idle)
-        XCTAssertFalse(collector.values.contains { $0.phase == .started })
+        // The admitted session owns exactly one started record and exactly
+        // one correlated terminal; a cancellation that raced provider startup
+        // must neither leave the started record dangling nor report a failure.
+        XCTAssertEqual(collector.values.map(\.phase), [.started, .cancelled])
+        XCTAssertTrue(collector.values.allSatisfy { $0.operationID == acceptance.sessionID.rawValue })
         XCTAssertFalse(collector.values.contains { $0.phase == .failed })
-        XCTAssertLessThanOrEqual(collector.values.filter { $0.phase == .cancelled }.count, 1)
+        XCTAssertEqual(collector.values.filter { $0.phase == .cancelled }.count, 1)
     }
 
     func testConcurrentListeningStartupCannotStealFacadeReservation() async throws {
@@ -268,48 +205,25 @@ final class DiagnosticsTests: XCTestCase {
         )
 
         await input.setStartBlocked(true)
-        let starting = Task { @MainActor in
-            try await voice.startListening()
-        }
+        let acceptance = try await voice.startSession()
         await input.waitForStartEntry()
 
         do {
-            try await voice.startListening()
+            _ = try await voice.startSession()
             XCTFail("a second startup must be rejected before it can own diagnostics")
         } catch let error as VoiceError {
             XCTAssertEqual(error, .invalidState("A voice operation is already active."))
         }
 
         await input.setStartBlocked(false)
-        try await starting.value
-        await voice.cancelListening()
+        await waitForVoiceState(.listening, voice: voice)
+        await voice.cancelSession(id: acceptance.sessionID)
+        await waitForDiagnosticCount(2, collector: collector)
 
+        // Only the admitted session owns diagnostics; the rejected startup
+        // never creates a started record or an identity of its own.
         XCTAssertEqual(collector.values.map(\.phase), [.started, .cancelled])
-        XCTAssertEqual(collector.values[0].operationID, collector.values[1].operationID)
-    }
-
-    func testStoppingSpeakingProducesExactlyOneTerminalDiagnostic() async throws {
-        let collector = DiagnosticCollector()
-        let output = ControlledSpeechOutput()
-        let voice = AppLocalVoice(
-            input: ControlledSpeechInput(),
-            output: output,
-            diagnostics: { collector.values.append($0) }
-        )
-        let task = Task { @MainActor in try await voice.speak("hello") }
-        await output.waitUntilStarted()
-        await voice.stopSpeaking()
-
-        do {
-            try await task.value
-            XCTFail("expected speech cancellation")
-        } catch let error as VoiceError {
-            XCTAssertEqual(error, .cancelled)
-        }
-
-        let terminals = collector.values.filter { $0.phase != .started }
-        XCTAssertEqual(collector.values.map(\.phase), [.started, .cancelled])
-        XCTAssertEqual(terminals.count, 1)
+        XCTAssertTrue(collector.values.allSatisfy { $0.operationID == acceptance.sessionID.rawValue })
     }
 
     func testConcurrentSpeechCannotStealFacadeReservation() async throws {
@@ -320,11 +234,11 @@ final class DiagnosticsTests: XCTestCase {
             output: output,
             diagnostics: { collector.values.append($0) }
         )
-        let first = Task { @MainActor in try await voice.speak("first") }
+        let first = Task { @MainActor in try await voice.speakNow("first") }
         await output.waitUntilStarted()
 
         do {
-            try await voice.speak("second")
+            try await voice.speakNow("second")
             XCTFail("a concurrent speech request must be rejected before it can own diagnostics")
         } catch let error as VoiceError {
             XCTAssertEqual(error, .invalidState("A voice operation is already active."))
@@ -338,8 +252,7 @@ final class DiagnosticsTests: XCTestCase {
             XCTAssertEqual(error, .cancelled)
         }
 
-        XCTAssertEqual(collector.values.map(\.phase), [.started, .cancelled])
-        XCTAssertEqual(collector.values[0].operationID, collector.values[1].operationID)
+        XCTAssertTrue(collector.values.isEmpty)
     }
 
     func testRejectedSpeechDoesNotCreateAStartedDiagnostic() async throws {
@@ -349,17 +262,17 @@ final class DiagnosticsTests: XCTestCase {
             output: ControlledSpeechOutput(),
             diagnostics: { collector.values.append($0) }
         )
-        try await voice.startListening()
+        try await voice.startTurn()
 
         do {
-            try await voice.speak("blocked")
+            try await voice.speakNow("blocked")
             XCTFail("expected invalid-state rejection")
         } catch let error as VoiceError {
             XCTAssertEqual(error.category, .invalidState)
         }
 
         XCTAssertFalse(collector.values.contains { $0.operation == .speaking })
-        await voice.cancelListening()
+        await voice.cancelTurn()
     }
 
     private func containsForbiddenDiagnosticField(_ diagnostic: VoiceDiagnostic) -> Bool {

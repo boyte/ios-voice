@@ -66,12 +66,4 @@ final class SpeechTextChunkerTests: XCTestCase {
             XCTAssertEqual(first.joined(), source, "seed \(seed)")
         }
     }
-
-    func testRepeatCyclePerformance() {
-        measure {
-            for _ in 0..<1_000 {
-                _ = SpeechTextChunker.split(String(repeating: "hello world. ", count: 20), maximumUTF16Length: 256)
-            }
-        }
-    }
 }

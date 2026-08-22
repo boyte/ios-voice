@@ -102,7 +102,7 @@ private final class CanonicalVoiceEventSubscription: @unchecked Sendable {
     deinit { reportTermination() }
 
     func stream() -> VoiceEventStream {
-        let lifetime = CanonicalVoiceEventStreamLifetime { [self] in cancel() }
+        let lifetime = EventStreamLifetime { [self] in cancel() }
         return VoiceEventStream(unfolding: { [self, lifetime] in
             lifetime.keepAlive()
             return try await next()
@@ -239,7 +239,10 @@ private final class CanonicalVoiceEventSubscription: @unchecked Sendable {
     }
 }
 
-private final class CanonicalVoiceEventStreamLifetime: Sendable {
+/// The throwing unfolding initializer in the supported SDK has no `onCancel`
+/// parameter. This sentinel uses the supported continuation termination hook
+/// to end a subscription when the returned stream releases its producer.
+final class EventStreamLifetime: Sendable {
     private let stream: AsyncStream<Void>
     private let continuation: AsyncStream<Void>.Continuation
 

@@ -68,6 +68,46 @@ public enum TranscriptPublicationPolicy: Hashable, Sendable {
     case stableChunks(StableChunkPolicy)
 }
 
+/// A completed local audio recording supplied for on-device recognition.
+///
+/// The file must remain readable until its recognition session reaches a
+/// terminal outcome. AppLocalVoice reads it locally; it neither transfers,
+/// retains, nor deletes the file.
+public struct RecognitionAudioFile: Sendable, Equatable {
+    /// Default maximum duration accepted for a completed recording.
+    public static let defaultMaximumDuration: Duration = .seconds(1_800)
+    /// Smallest finite completed-recording duration accepted by the library.
+    public static let minimumMaximumDuration: Duration = .seconds(1)
+    /// Largest finite completed-recording duration accepted by the library.
+    public static let maximumMaximumDuration: Duration = .seconds(7_200)
+
+    /// Local URL of the completed recording.
+    public var url: URL
+    /// Maximum media duration AppLocalVoice will analyze from this file.
+    public var maximumDuration: Duration
+
+    /// Creates a completed local recording input.
+    public init(
+        url: URL,
+        maximumDuration: Duration = Self.defaultMaximumDuration
+    ) {
+        self.url = url
+        self.maximumDuration = maximumDuration
+    }
+}
+
+/// Selects the audio source for one recognition session.
+///
+/// `.audioFile` is for a completed local recording, not live PCM streaming.
+/// It does not request microphone permission or acquire an audio-session
+/// capture lease.
+public enum RecognitionInput: Sendable, Equatable {
+    /// Capture live audio from the device microphone.
+    case microphone
+    /// Analyze a completed local audio recording.
+    case audioFile(RecognitionAudioFile)
+}
+
 /// Host-ready configuration for one recognition session.
 ///
 /// This additive value composes the existing provider configuration with the
@@ -81,11 +121,14 @@ public struct RecognitionSessionConfiguration: Sendable, Equatable {
     public static let maximumMaximumRecognitionDuration: Duration = .seconds(600)
     /// Provider recognition settings for this session.
     public var recognition: RecognitionConfiguration
+    /// Audio source for this session.
+    public var input: RecognitionInput
     /// Transcript payload cadence for this session.
     public var publicationPolicy: TranscriptPublicationPolicy
     /// Audio interruption, route, background, and cleanup behavior for this session.
     public var lifecyclePolicy: AudioLifecyclePolicy
-    /// Maximum capture time after the provider reaches listening, or `nil` for no library limit.
+    /// Maximum microphone-capture time after the provider reaches listening,
+    /// or `nil` for no library limit. Completed files use their own limit.
     public var maximumRecognitionDuration: Duration?
 
     /// Creates host-ready session configuration without starting provider work.
@@ -95,7 +138,25 @@ public struct RecognitionSessionConfiguration: Sendable, Equatable {
         lifecyclePolicy: AudioLifecyclePolicy = .init(),
         maximumRecognitionDuration: Duration? = Self.defaultMaximumRecognitionDuration
     ) {
+        self.init(
+            recognition: recognition,
+            input: .microphone,
+            publicationPolicy: publicationPolicy,
+            lifecyclePolicy: lifecyclePolicy,
+            maximumRecognitionDuration: maximumRecognitionDuration
+        )
+    }
+
+    /// Creates host-ready session configuration with an explicit audio input.
+    public init(
+        recognition: RecognitionConfiguration = .init(),
+        input: RecognitionInput,
+        publicationPolicy: TranscriptPublicationPolicy = .previewAndFinal,
+        lifecyclePolicy: AudioLifecyclePolicy = .init(),
+        maximumRecognitionDuration: Duration? = Self.defaultMaximumRecognitionDuration
+    ) {
         self.recognition = recognition
+        self.input = input
         self.publicationPolicy = publicationPolicy
         self.lifecyclePolicy = lifecyclePolicy
         self.maximumRecognitionDuration = maximumRecognitionDuration

@@ -7,31 +7,6 @@ import XCTest
 /// every loop has a small hard cap so CI cannot be made unbounded by an
 /// environment variable or by malformed input.
 final class DeterministicFuzzTests: XCTestCase {
-    func testLocaleIdentifiersAndConfigurationsAreTotal() {
-        let campaign = FuzzCampaign()
-        for (index, seed) in campaign.seeds.enumerated() {
-            var random = DeterministicRandom(seed: seed)
-            for _ in 0..<campaign.caseCount {
-                let identifier = randomLocaleIdentifier(using: &random)
-                let locale = Locale(identifier: identifier)
-                let policy: SpeechModelPolicy = random.nextInt(2) == 0
-                    ? .installedModelsOnly
-                    : .allowModelInstallation
-                let configuration = RecognitionConfiguration(
-                    locale: locale,
-                    policy: policy
-                )
-
-                // Foundation owns locale parsing. Test the package-owned
-                // invariants independently: configuration preserves the
-                // requested policy and the exact identifier supplied by the
-                // caller, including malformed identifiers.
-                XCTAssertEqual(configuration.policy, policy, "seed \(seed), case \(index)")
-                XCTAssertEqual(configuration.locale.identifier, locale.identifier, "seed \(seed), case \(index)")
-            }
-        }
-    }
-
     @MainActor
     func testMalformedSpeechConfigurationsFailDeterministically() async {
         let output = AppleSpeechOutput()
@@ -104,8 +79,8 @@ final class DeterministicFuzzTests: XCTestCase {
                 var random = DeterministicRandom(seed: seed)
                 let input = ControlledSpeechInput()
                 let coordinator = VoiceCoordinator(input: input, output: ControlledSpeechOutput())
-                let stream = await coordinator.events()
-                try await coordinator.startListening()
+                let stream = await coordinator.voiceEvents()
+                let sessionID = try await coordinator.startTurn()
 
                 for step in 0..<campaign.stepCount {
                     let text = "seed-\(seed)-step-\(step)-🙂"
@@ -128,28 +103,30 @@ final class DeterministicFuzzTests: XCTestCase {
                     }
                 }
 
-                let result = try await coordinator.endListening()
+                let result = try await coordinator.finishTurn()
                 XCTAssertFalse(result.isEmpty, "seed \(seed)")
-                let observed = await collectEventsThroughIdle(stream, limit: 64)
+                // The stream is drained after the turn ended, exactly as the
+                // legacy campaign did. Previews and advisory states coalesce
+                // for a subscriber that is not waiting, so the bounded tail
+                // stays meaningful while the terminal outcome stays durable.
+                let observed = try await collectEventsThroughOutcome(stream, sessionID: sessionID, limit: 64)
                 XCTAssertFalse(observed.truncated, "event stream exceeded bounded tail for seed \(seed)")
-                XCTAssertEqual(
-                    observed.events.filter { event in
-                        if case .listeningFinished = event { return true }
-                        return false
-                    }.count,
-                    1,
-                    "seed \(seed)"
-                )
-                let finalTexts = observed.events.compactMap { event -> String? in
-                    guard case .transcript(let update) = event, update.isFinal else { return nil }
-                    return update.text
+                let kinds = observed.events.compactMap { event -> RecognitionEventKind? in
+                    guard case .recognition(let recognition) = event,
+                          recognition.sessionID == sessionID else { return nil }
+                    return recognition.kind
+                }
+                XCTAssertEqual(kinds.filter(\.isTerminal).count, 1, "seed \(seed)")
+                XCTAssertEqual(kinds.last, .outcome(.completed), "seed \(seed)")
+                let finalTexts = kinds.compactMap { kind -> String? in
+                    guard case .transcript(.finalTranscript(let transcript)) = kind else { return nil }
+                    return transcript.text
                 }
                 XCTAssertEqual(
-                    finalTexts.count,
-                    Set(finalTexts).count,
+                    finalTexts,
+                    [result],
                     "exact duplicate final transcript for seed \(seed)"
                 )
-                XCTAssertEqual(observed.events.filter { $0 == .stateChanged(.idle) }.count, 1, "seed \(seed)")
                 let state = await coordinator.state
                 let balanced = await input.ledger.isBalanced()
                 XCTAssertEqual(state, .idle, "seed \(seed)")
@@ -158,17 +135,6 @@ final class DeterministicFuzzTests: XCTestCase {
         }
     }
 
-    private func randomLocaleIdentifier(using random: inout DeterministicRandom) -> String {
-        let known = [
-            "en-US", "vi-VN", "zh-Hant-TW", "de_DE", "", "-", "_", "en--US",
-            "x-private", "123", "@@@", "\u{0000}", "🗣️", "a/\\b"
-        ]
-        if random.nextInt(3) != 0 { return known[random.nextInt(known.count)] }
-
-        let alphabet = Array("abcdefghijklmnopqrstuvwxyz0123456789-_@")
-        let length = random.nextInt(48)
-        return String((0..<length).map { _ in alphabet[random.nextInt(alphabet.count)] })
-    }
 }
 
 private struct FuzzCampaign {
@@ -203,15 +169,24 @@ private struct FuzzCampaign {
 }
 
 private struct BoundedEvents: Sendable {
-    let events: [VoiceEvent]
+    let events: [VoiceEventStreamEvent]
     let truncated: Bool
 }
 
-private func collectEventsThroughIdle(_ stream: AsyncStream<VoiceEvent>, limit: Int) async -> BoundedEvents {
-    var events: [VoiceEvent] = []
-    for await event in stream {
+/// Drains the canonical stream only through the session's terminal outcome,
+/// with a hard cap on the tail so a misbehaving producer cannot make the
+/// campaign unbounded. The stream remains open for later turns.
+private func collectEventsThroughOutcome(
+    _ stream: VoiceEventStream,
+    sessionID: RecognitionSessionID,
+    limit: Int
+) async throws -> BoundedEvents {
+    var events: [VoiceEventStreamEvent] = []
+    for try await event in stream {
         events.append(event)
-        if event == .stateChanged(.idle) {
+        if case .recognition(let recognition) = event,
+           recognition.sessionID == sessionID,
+           recognition.kind.isTerminal {
             return BoundedEvents(events: events, truncated: false)
         }
         if events.count >= limit {

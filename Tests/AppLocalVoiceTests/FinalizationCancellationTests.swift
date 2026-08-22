@@ -5,12 +5,12 @@ final class FinalizationCancellationTests: XCTestCase {
     func testCancellationDuringFinalizationCannotReturnStaleSuccess() async throws {
         let input = BlockingFinalizationInput()
         let coordinator = VoiceCoordinator(input: input, output: ControlledSpeechOutput())
-        try await coordinator.startListening()
+        try await coordinator.startTurn()
 
-        let finishing = Task { try await coordinator.endListening() }
+        let finishing = Task { try await coordinator.finishTurn() }
         await input.waitUntilStopEntered()
         finishing.cancel()
-        await coordinator.cancelListening()
+        await coordinator.cancelTurn()
         let pendingState = await coordinator.state
         XCTAssertEqual(pendingState, .failed)
         await input.releaseStop()
@@ -34,11 +34,11 @@ final class FinalizationCancellationTests: XCTestCase {
     func testIndependentCancelDuringFinalizationCannotReturnCompletedText() async throws {
         let input = BlockingFinalizationInput()
         let coordinator = VoiceCoordinator(input: input, output: ControlledSpeechOutput())
-        try await coordinator.startListening()
+        try await coordinator.startTurn()
 
-        let finishing = Task { try await coordinator.endListening() }
+        let finishing = Task { try await coordinator.finishTurn() }
         await input.waitUntilStopEntered()
-        let cancelling = Task { await coordinator.cancelListening() }
+        let cancelling = Task { await coordinator.cancelTurn() }
         await input.waitUntilCancelEntered()
         await cancelling.value
         let pendingState = await coordinator.state
@@ -62,9 +62,9 @@ final class FinalizationCancellationTests: XCTestCase {
     func testCloseDuringFinalizationCancelsAndReleasesResources() async throws {
         let input = BlockingFinalizationInput()
         let coordinator = VoiceCoordinator(input: input, output: ControlledSpeechOutput())
-        try await coordinator.startListening()
+        try await coordinator.startTurn()
 
-        let finishing = Task { try await coordinator.endListening() }
+        let finishing = Task { try await coordinator.finishTurn() }
         await input.waitUntilStopEntered()
         let closing = Task { await coordinator.close() }
         await input.waitUntilCancelEntered()
@@ -90,9 +90,9 @@ final class FinalizationCancellationTests: XCTestCase {
             output: ControlledSpeechOutput(),
             cleanupTimeout: .milliseconds(30)
         )
-        try await coordinator.startListening()
+        try await coordinator.startTurn()
 
-        let finishing = Task { try await coordinator.endListening() }
+        let finishing = Task { try await coordinator.finishTurn() }
         await input.waitUntilStopEntered()
 
         let closedBeforeStopReturns = await coordinator.closeAndReport()
@@ -131,10 +131,10 @@ private actor BlockingFinalizationInput: SpeechInput {
         SpeechCapabilities(locale: locale, isSupported: true, supportsOnDevice: true)
     }
 
-    func requestAuthorization() async -> SpeechAuthorization { .authorized }
+    func requestAuthorization() async -> VoicePermissionStatus { .authorized }
     func requestMicrophonePermission() async -> Bool { true }
 
-    func start(configuration: RecognitionConfiguration) async throws -> AsyncThrowingStream<TranscriptUpdate, Error> {
+    func start(configuration: RecognitionConfiguration, input: RecognitionInput, lifecyclePolicy: AudioLifecyclePolicy) async throws -> AsyncThrowingStream<TranscriptUpdate, Error> {
         active = true
         await ledger.acquire(.microphone)
         // Keep the provider stream open until the explicit stop/cancel

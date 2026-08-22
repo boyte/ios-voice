@@ -110,24 +110,3 @@ func withBoundedTimeout<T: Sendable>(
         BoundedTimeoutRace(duration: duration, operation: operation).start(continuation)
     }
 }
-
-/// Drains one lifecycle stream only through its terminal idle state. The
-/// stream remains open for future turns, so callers must never await an
-/// absent event with an unbounded `first(where:)`.
-func collectVoiceEventsThroughIdle(_ stream: AsyncStream<VoiceEvent>) async -> [VoiceEvent] {
-    var events: [VoiceEvent] = []
-    for await event in stream {
-        events.append(event)
-        if event == .stateChanged(.idle) { break }
-    }
-    return events
-}
-
-func collectVoiceEventsThroughListeningFinished(_ stream: AsyncStream<VoiceEvent>) async -> [VoiceEvent] {
-    var events: [VoiceEvent] = []
-    for await event in stream {
-        events.append(event)
-        if case .listeningFinished = event { break }
-    }
-    return events
-}

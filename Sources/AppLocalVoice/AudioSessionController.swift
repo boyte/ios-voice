@@ -73,15 +73,9 @@ struct AudioSessionSnapshot: Sendable, Equatable {
 }
 
 /// The small system boundary required by the audio-session broker.
-///
-/// The original `configureForVoice()` requirement remains as a compatibility
-/// seam for focused tests and older internal fakes. New code should use the
-/// role-aware default implementation below.
 protocol AudioSessionDriver: AnyObject, Sendable {
     var isOtherAudioPlaying: Bool { get }
 
-    func configureForVoice() throws
-    func configure(for role: AudioSessionRole) throws
     func configure(
         for role: AudioSessionRole,
         externalAudio: ExternalAudioPolicy,
@@ -93,21 +87,6 @@ protocol AudioSessionDriver: AnyObject, Sendable {
 }
 
 extension AudioSessionDriver {
-    func configure(for role: AudioSessionRole) throws {
-        _ = role
-        try configureForVoice()
-    }
-
-    func configure(
-        for role: AudioSessionRole,
-        externalAudio: ExternalAudioPolicy,
-        isOtherAudioPlaying: Bool
-    ) throws {
-        _ = externalAudio
-        _ = isOtherAudioPlaying
-        try configure(for: role)
-    }
-
     func snapshot() -> AudioSessionSnapshot {
         .empty
     }
@@ -138,18 +117,6 @@ final class AVAudioSessionDriver: AudioSessionDriver {
             preferredSampleRate: session.preferredSampleRate,
             preferredIOBufferDuration: session.preferredIOBufferDuration,
             preferredInputUID: session.preferredInput?.uid
-        )
-    }
-
-    func configureForVoice() throws {
-        try configure(for: .speaking)
-    }
-
-    func configure(for role: AudioSessionRole) throws {
-        try configure(
-            for: role,
-            externalAudio: .duck,
-            isOtherAudioPlaying: session.isOtherAudioPlaying
         )
     }
 

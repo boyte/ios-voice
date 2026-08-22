@@ -7,9 +7,9 @@ final class DeterministicLifecycleTests: XCTestCase {
         let input = ControlledSpeechInput(ledger: ledger)
         let coordinator = VoiceCoordinator(input: input, output: ControlledSpeechOutput())
 
-        try await coordinator.startListening()
+        try await coordinator.startTurn()
         await input.send(TranscriptUpdate(text: "hello", isFinal: true))
-        _ = try await coordinator.endListening()
+        _ = try await coordinator.finishTurn()
 
         let balanced = await ledger.isBalanced()
         let counts = await ledger.count(.microphone)
@@ -21,9 +21,9 @@ final class DeterministicLifecycleTests: XCTestCase {
     func testModelPolicyReachesTheInputBoundaryWhenPreflightAllowsStart() async throws {
         let input = ControlledSpeechInput()
         let coordinator = VoiceCoordinator(input: input, output: ControlledSpeechOutput())
-        try await coordinator.startListening(configuration: .init(policy: .allowModelInstallation))
+        try await coordinator.startTurn(configuration: .init(policy: .allowModelInstallation))
         let configuration = await input.lastConfiguration
-        await coordinator.cancelListening()
+        await coordinator.cancelTurn()
 
         XCTAssertEqual(configuration?.policy, .allowModelInstallation)
     }
@@ -38,10 +38,14 @@ final class DeterministicLifecycleTests: XCTestCase {
             let coordinator = VoiceCoordinator(input: input, output: ControlledSpeechOutput())
 
             do {
-                try await coordinator.startListening(configuration: .init(policy: .allowModelInstallation))
+                try await coordinator.startTurn(configuration: .init(policy: .allowModelInstallation))
                 XCTFail("expected \(stage) failure")
-            } catch {
-                XCTAssertEqual(error as? HarnessFailure, expectedFailure)
+            } catch let error as VoiceError {
+                // A provider error that is not itself a `VoiceError` surfaces
+                // across the session boundary as the typed `.underlying`
+                // category. The stage identity lives in the harness fake, not
+                // in the content-free canonical outcome.
+                XCTAssertEqual(error.category, .underlying, "\(stage)")
             }
 
             let balanced = await ledger.isBalanced()
@@ -56,15 +60,20 @@ final class DeterministicLifecycleTests: XCTestCase {
             let ledger = ResourceLedger()
             let input = ControlledSpeechInput(ledger: ledger)
             let coordinator = VoiceCoordinator(input: input, output: ControlledSpeechOutput())
-            let events = await coordinator.events()
-            try await coordinator.startListening()
+            let stream = await coordinator.voiceEvents()
+            let kindsTask = Task { try await collectRecognitionKinds(stream) }
+            try await coordinator.startTurn()
             await input.failStream(HarnessFailure(stage: stage, message: stage.description))
 
-            let failure = await events.first(where: {
-                if case .failure = $0 { return true }
-                return false
-            })
-            XCTAssertNotNil(failure)
+            let kinds = try await withBoundedTimeout(.seconds(1)) { try await kindsTask.value }
+            // The failure is observable as exactly one failed terminal
+            // outcome, and no final transcript is published on the failure
+            // path.
+            XCTAssertEqual(kinds.filter { $0.isTerminal }.count, 1)
+            guard case .outcome(.failed)? = kinds.last else {
+                return XCTFail("expected a failed terminal outcome for \(stage), got \(String(describing: kinds.last))")
+            }
+            XCTAssertFalse(kinds.contains { $0.isFinalTranscript })
             let balanced = await ledger.isBalanced()
             XCTAssertTrue(balanced)
         }
@@ -76,15 +85,16 @@ final class DeterministicLifecycleTests: XCTestCase {
         let expectedFailure = HarnessFailure(stage: .finalization, message: "finalize failed")
         await input.setFailure(expectedFailure)
         let coordinator = VoiceCoordinator(input: input, output: ControlledSpeechOutput())
-        try await coordinator.startListening()
+        try await coordinator.startTurn()
 
         do {
-            _ = try await coordinator.endListening()
+            _ = try await coordinator.finishTurn()
             XCTFail("expected finalization failure")
-        } catch {
-            XCTAssertEqual(error as? HarnessFailure, expectedFailure)
+        } catch let error as HarnessFailure {
+            XCTAssertEqual(error, expectedFailure)
         }
 
+        await waitForState(.idle, coordinator: coordinator)
         let state = await coordinator.state
         let balanced = await ledger.isBalanced()
         XCTAssertEqual(state, .idle)
@@ -94,12 +104,12 @@ final class DeterministicLifecycleTests: XCTestCase {
     func testStaleCallbacksCannotEnterTheNextGeneration() async throws {
         let input = ControlledSpeechInput()
         let coordinator = VoiceCoordinator(input: input, output: ControlledSpeechOutput())
-        try await coordinator.startListening()
-        await coordinator.cancelListening()
-        try await coordinator.startListening()
+        try await coordinator.startTurn()
+        await coordinator.cancelTurn()
+        try await coordinator.startTurn()
         await input.sendStale(TranscriptUpdate(text: "old", isFinal: true))
         await input.send(TranscriptUpdate(text: "new", isFinal: true))
-        let result = try await coordinator.endListening()
+        let result = try await coordinator.finishTurn()
 
         XCTAssertEqual(result, "new")
     }
@@ -107,7 +117,7 @@ final class DeterministicLifecycleTests: XCTestCase {
     func testTTSStopAndDuplicateDelegateCompletionAreIdempotent() async throws {
         let output = ControlledSpeechOutput()
         let coordinator = VoiceCoordinator(input: ControlledSpeechInput(), output: output)
-        let task = Task { try await coordinator.speak("hello") }
+        let task = Task { try await coordinator.speakNow("hello") }
         await output.waitUntilStarted()
         await output.complete(.success(()))
         await output.complete(.success(()))
@@ -125,12 +135,15 @@ final class DeterministicLifecycleTests: XCTestCase {
         let coordinator = VoiceCoordinator(input: ControlledSpeechInput(), output: output)
 
         do {
-            try await coordinator.speak("hello")
+            try await coordinator.speakNow("hello")
             XCTFail("expected synthesis failure")
         } catch let error as HarnessFailure {
             XCTAssertEqual(error.stage, .speech)
         }
 
+        // The playback result resolves before the post-failure cleanup
+        // transitions back to idle; wait for that transition explicitly.
+        await waitForState(.idle, coordinator: coordinator)
         let balanced = await ledger.isBalanced()
         let state = await coordinator.state
         XCTAssertTrue(balanced)
@@ -147,14 +160,14 @@ final class DeterministicLifecycleTests: XCTestCase {
             for _ in 0..<24 {
                 switch random.nextInt(5) {
                 case 0:
-                    if await coordinator.state == .idle { try? await coordinator.startListening() }
+                    if await coordinator.state == .idle { _ = try? await coordinator.startTurn() }
                 case 1:
-                    if await coordinator.state == .listening { _ = try? await coordinator.endListening() }
+                    if await coordinator.state == .listening { _ = try? await coordinator.finishTurn() }
                 case 2:
-                    await coordinator.cancelListening()
+                    await coordinator.cancelTurn()
                 case 3:
                     if await coordinator.state == .idle {
-                        let speechTask = Task { try? await coordinator.speak("x") }
+                        let speechTask = Task { try? await coordinator.speakNow("x") }
                         await output.waitUntilStarted()
                         await coordinator.stopSpeaking()
                         _ = await speechTask.value

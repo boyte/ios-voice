@@ -2,7 +2,6 @@ import Foundation
 
 protocol SpeechOutput: Sendable {
     func availableVoices(for locale: Locale) async -> [SpeechVoice]
-    func speak(_ text: String, configuration: SpeechConfiguration) async throws
     func speak(
         _ text: String,
         configuration: SpeechConfiguration,
@@ -22,21 +21,9 @@ extension SpeechOutput {
     func setProgressHandler(_ handler: (@Sendable (Range<Int>) async -> Void)?) async {
         _ = handler
     }
-    /// A provider that has not implemented the lifecycle-aware seam must not
-    /// silently ignore a caller's external-audio policy. The v1 lifecycle
-    /// cases are deterministic, but only an opted-in provider can forward the
-    /// selected policy to its audio session.
-    func speak(
-        _ text: String,
-        configuration: SpeechConfiguration,
-        lifecyclePolicy: AudioLifecyclePolicy
-    ) async throws {
-        guard lifecyclePolicy == .init() else {
-            throw VoiceError.invalidSpeechConfiguration(
-                "This speech output provider does not support a non-default audio lifecycle policy."
-            )
-        }
-        try await speak(text, configuration: configuration)
+    /// Convenience with the default lifecycle policy.
+    func speak(_ text: String, configuration: SpeechConfiguration = .init()) async throws {
+        try await speak(text, configuration: configuration, lifecyclePolicy: .init())
     }
 
     func resourcesAreReleased() async -> Bool { true }

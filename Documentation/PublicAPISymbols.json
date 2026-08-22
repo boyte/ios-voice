@@ -3206,59 +3206,6 @@
       }
     },
     {
-      "precise": "s:13AppLocalVoice0C16BackgroundPolicyO",
-      "title": "VoiceBackgroundPolicy",
-      "kind": "swift.enum",
-      "fingerprint": {
-        "kind": "swift.enum",
-        "pathComponents": [
-          "VoiceBackgroundPolicy"
-        ],
-        "declarationFragments": [
-          {
-            "kind": "keyword",
-            "spelling": "enum"
-          },
-          {
-            "kind": "text",
-            "spelling": " "
-          },
-          {
-            "kind": "identifier",
-            "spelling": "VoiceBackgroundPolicy"
-          }
-        ],
-        "availability": null
-      }
-    },
-    {
-      "precise": "s:13AppLocalVoice0C16BackgroundPolicyO4stopyA2CmF",
-      "title": "VoiceBackgroundPolicy.stop",
-      "kind": "swift.enum.case",
-      "fingerprint": {
-        "kind": "swift.enum.case",
-        "pathComponents": [
-          "VoiceBackgroundPolicy",
-          "stop"
-        ],
-        "declarationFragments": [
-          {
-            "kind": "keyword",
-            "spelling": "case"
-          },
-          {
-            "kind": "text",
-            "spelling": " "
-          },
-          {
-            "kind": "identifier",
-            "spelling": "stop"
-          }
-        ],
-        "availability": null
-      }
-    },
-    {
       "precise": "s:13AppLocalVoice0C16PermissionStatusO",
       "title": "VoicePermissionStatus",
       "kind": "swift.enum",
@@ -3710,59 +3657,6 @@
           {
             "kind": "text",
             "spelling": ")"
-          }
-        ],
-        "availability": null
-      }
-    },
-    {
-      "precise": "s:13AppLocalVoice0C17RouteChangePolicyO",
-      "title": "VoiceRouteChangePolicy",
-      "kind": "swift.enum",
-      "fingerprint": {
-        "kind": "swift.enum",
-        "pathComponents": [
-          "VoiceRouteChangePolicy"
-        ],
-        "declarationFragments": [
-          {
-            "kind": "keyword",
-            "spelling": "enum"
-          },
-          {
-            "kind": "text",
-            "spelling": " "
-          },
-          {
-            "kind": "identifier",
-            "spelling": "VoiceRouteChangePolicy"
-          }
-        ],
-        "availability": null
-      }
-    },
-    {
-      "precise": "s:13AppLocalVoice0C17RouteChangePolicyO21stopAndRequireRestartyA2CmF",
-      "title": "VoiceRouteChangePolicy.stopAndRequireRestart",
-      "kind": "swift.enum.case",
-      "fingerprint": {
-        "kind": "swift.enum.case",
-        "pathComponents": [
-          "VoiceRouteChangePolicy",
-          "stopAndRequireRestart"
-        ],
-        "declarationFragments": [
-          {
-            "kind": "keyword",
-            "spelling": "case"
-          },
-          {
-            "kind": "text",
-            "spelling": " "
-          },
-          {
-            "kind": "identifier",
-            "spelling": "stopAndRequireRestart"
           }
         ],
         "availability": null
@@ -4361,59 +4255,6 @@
       }
     },
     {
-      "precise": "s:13AppLocalVoice0C18InterruptionPolicyO",
-      "title": "VoiceInterruptionPolicy",
-      "kind": "swift.enum",
-      "fingerprint": {
-        "kind": "swift.enum",
-        "pathComponents": [
-          "VoiceInterruptionPolicy"
-        ],
-        "declarationFragments": [
-          {
-            "kind": "keyword",
-            "spelling": "enum"
-          },
-          {
-            "kind": "text",
-            "spelling": " "
-          },
-          {
-            "kind": "identifier",
-            "spelling": "VoiceInterruptionPolicy"
-          }
-        ],
-        "availability": null
-      }
-    },
-    {
-      "precise": "s:13AppLocalVoice0C18InterruptionPolicyO4stopyA2CmF",
-      "title": "VoiceInterruptionPolicy.stop",
-      "kind": "swift.enum.case",
-      "fingerprint": {
-        "kind": "swift.enum.case",
-        "pathComponents": [
-          "VoiceInterruptionPolicy",
-          "stop"
-        ],
-        "declarationFragments": [
-          {
-            "kind": "keyword",
-            "spelling": "case"
-          },
-          {
-            "kind": "text",
-            "spelling": " "
-          },
-          {
-            "kind": "identifier",
-            "spelling": "stop"
-          }
-        ],
-        "availability": null
-      }
-    },
-    {
       "precise": "s:13AppLocalVoice0C18InterruptionReasonO",
       "title": "VoiceInterruptionReason",
       "kind": "swift.enum",
@@ -4861,59 +4702,6 @@
             "kind": "typeIdentifier",
             "spelling": "RecognitionSessionID",
             "preciseIdentifier": "s:13AppLocalVoice20RecognitionSessionIDV"
-          }
-        ],
-        "availability": null
-      }
-    },
-    {
-      "precise": "s:13AppLocalVoice0C20CleanupFailurePolicyO",
-      "title": "VoiceCleanupFailurePolicy",
-      "kind": "swift.enum",
-      "fingerprint": {
-        "kind": "swift.enum",
-        "pathComponents": [
-          "VoiceCleanupFailurePolicy"
-        ],
-        "declarationFragments": [
-          {
-            "kind": "keyword",
-            "spelling": "enum"
-          },
-          {
-            "kind": "text",
-            "spelling": " "
-          },
-          {
-            "kind": "identifier",
-            "spelling": "VoiceCleanupFailurePolicy"
-          }
-        ],
-        "availability": null
-      }
-    },
-    {
-      "precise": "s:13AppLocalVoice0C20CleanupFailurePolicyO20requireExplicitRetryyA2CmF",
-      "title": "VoiceCleanupFailurePolicy.requireExplicitRetry",
-      "kind": "swift.enum.case",
-      "fingerprint": {
-        "kind": "swift.enum.case",
-        "pathComponents": [
-          "VoiceCleanupFailurePolicy",
-          "requireExplicitRetry"
-        ],
-        "declarationFragments": [
-          {
-            "kind": "keyword",
-            "spelling": "case"
-          },
-          {
-            "kind": "text",
-            "spelling": " "
-          },
-          {
-            "kind": "identifier",
-            "spelling": "requireExplicitRetry"
           }
         ],
         "availability": null
@@ -8325,6 +8113,99 @@
       }
     },
     {
+      "precise": "s:13AppLocalVoice16RecognitionInputO",
+      "title": "RecognitionInput",
+      "kind": "swift.enum",
+      "fingerprint": {
+        "kind": "swift.enum",
+        "pathComponents": [
+          "RecognitionInput"
+        ],
+        "declarationFragments": [
+          {
+            "kind": "keyword",
+            "spelling": "enum"
+          },
+          {
+            "kind": "text",
+            "spelling": " "
+          },
+          {
+            "kind": "identifier",
+            "spelling": "RecognitionInput"
+          }
+        ],
+        "availability": null
+      }
+    },
+    {
+      "precise": "s:13AppLocalVoice16RecognitionInputO10microphoneyA2CmF",
+      "title": "RecognitionInput.microphone",
+      "kind": "swift.enum.case",
+      "fingerprint": {
+        "kind": "swift.enum.case",
+        "pathComponents": [
+          "RecognitionInput",
+          "microphone"
+        ],
+        "declarationFragments": [
+          {
+            "kind": "keyword",
+            "spelling": "case"
+          },
+          {
+            "kind": "text",
+            "spelling": " "
+          },
+          {
+            "kind": "identifier",
+            "spelling": "microphone"
+          }
+        ],
+        "availability": null
+      }
+    },
+    {
+      "precise": "s:13AppLocalVoice16RecognitionInputO9audioFileyAcA0d5AudioG0VcACmF",
+      "title": "RecognitionInput.audioFile(_:)",
+      "kind": "swift.enum.case",
+      "fingerprint": {
+        "kind": "swift.enum.case",
+        "pathComponents": [
+          "RecognitionInput",
+          "audioFile(_:)"
+        ],
+        "declarationFragments": [
+          {
+            "kind": "keyword",
+            "spelling": "case"
+          },
+          {
+            "kind": "text",
+            "spelling": " "
+          },
+          {
+            "kind": "identifier",
+            "spelling": "audioFile"
+          },
+          {
+            "kind": "text",
+            "spelling": "("
+          },
+          {
+            "kind": "typeIdentifier",
+            "spelling": "RecognitionAudioFile",
+            "preciseIdentifier": "s:13AppLocalVoice20RecognitionAudioFileV"
+          },
+          {
+            "kind": "text",
+            "spelling": ")"
+          }
+        ],
+        "availability": null
+      }
+    },
+    {
       "precise": "s:13AppLocalVoice16SpeechPlaybackIDV",
       "title": "SpeechPlaybackID",
       "kind": "swift.struct",
@@ -9645,308 +9526,6 @@
       }
     },
     {
-      "precise": "s:13AppLocalVoice18SpeechQueueCommandO",
-      "title": "SpeechQueueCommand",
-      "kind": "swift.enum",
-      "fingerprint": {
-        "kind": "swift.enum",
-        "pathComponents": [
-          "SpeechQueueCommand"
-        ],
-        "declarationFragments": [
-          {
-            "kind": "keyword",
-            "spelling": "enum"
-          },
-          {
-            "kind": "text",
-            "spelling": " "
-          },
-          {
-            "kind": "identifier",
-            "spelling": "SpeechQueueCommand"
-          }
-        ],
-        "availability": null
-      }
-    },
-    {
-      "precise": "s:13AppLocalVoice18SpeechQueueCommandO12clearPendingyA2CmF",
-      "title": "SpeechQueueCommand.clearPending",
-      "kind": "swift.enum.case",
-      "fingerprint": {
-        "kind": "swift.enum.case",
-        "pathComponents": [
-          "SpeechQueueCommand",
-          "clearPending"
-        ],
-        "declarationFragments": [
-          {
-            "kind": "keyword",
-            "spelling": "case"
-          },
-          {
-            "kind": "text",
-            "spelling": " "
-          },
-          {
-            "kind": "identifier",
-            "spelling": "clearPending"
-          }
-        ],
-        "availability": null
-      }
-    },
-    {
-      "precise": "s:13AppLocalVoice18SpeechQueueCommandO12stopAndClearyA2CmF",
-      "title": "SpeechQueueCommand.stopAndClear",
-      "kind": "swift.enum.case",
-      "fingerprint": {
-        "kind": "swift.enum.case",
-        "pathComponents": [
-          "SpeechQueueCommand",
-          "stopAndClear"
-        ],
-        "declarationFragments": [
-          {
-            "kind": "keyword",
-            "spelling": "case"
-          },
-          {
-            "kind": "text",
-            "spelling": " "
-          },
-          {
-            "kind": "identifier",
-            "spelling": "stopAndClear"
-          }
-        ],
-        "availability": null
-      }
-    },
-    {
-      "precise": "s:13AppLocalVoice18SpeechQueueCommandO4skipyA2CmF",
-      "title": "SpeechQueueCommand.skip",
-      "kind": "swift.enum.case",
-      "fingerprint": {
-        "kind": "swift.enum.case",
-        "pathComponents": [
-          "SpeechQueueCommand",
-          "skip"
-        ],
-        "declarationFragments": [
-          {
-            "kind": "keyword",
-            "spelling": "case"
-          },
-          {
-            "kind": "text",
-            "spelling": " "
-          },
-          {
-            "kind": "identifier",
-            "spelling": "skip"
-          }
-        ],
-        "availability": null
-      }
-    },
-    {
-      "precise": "s:13AppLocalVoice18SpeechQueueCommandO4stopyA2CmF",
-      "title": "SpeechQueueCommand.stop",
-      "kind": "swift.enum.case",
-      "fingerprint": {
-        "kind": "swift.enum.case",
-        "pathComponents": [
-          "SpeechQueueCommand",
-          "stop"
-        ],
-        "declarationFragments": [
-          {
-            "kind": "keyword",
-            "spelling": "case"
-          },
-          {
-            "kind": "text",
-            "spelling": " "
-          },
-          {
-            "kind": "identifier",
-            "spelling": "stop"
-          }
-        ],
-        "availability": null
-      }
-    },
-    {
-      "precise": "s:13AppLocalVoice18SpeechQueueCommandO5pauseyA2CmF",
-      "title": "SpeechQueueCommand.pause",
-      "kind": "swift.enum.case",
-      "fingerprint": {
-        "kind": "swift.enum.case",
-        "pathComponents": [
-          "SpeechQueueCommand",
-          "pause"
-        ],
-        "declarationFragments": [
-          {
-            "kind": "keyword",
-            "spelling": "case"
-          },
-          {
-            "kind": "text",
-            "spelling": " "
-          },
-          {
-            "kind": "identifier",
-            "spelling": "pause"
-          }
-        ],
-        "availability": null
-      }
-    },
-    {
-      "precise": "s:13AppLocalVoice18SpeechQueueCommandO6replayyAcA0D6ItemIDV_AA0D13EnqueuePolicyOtcACmF",
-      "title": "SpeechQueueCommand.replay(_:policy:)",
-      "kind": "swift.enum.case",
-      "fingerprint": {
-        "kind": "swift.enum.case",
-        "pathComponents": [
-          "SpeechQueueCommand",
-          "replay(_:policy:)"
-        ],
-        "declarationFragments": [
-          {
-            "kind": "keyword",
-            "spelling": "case"
-          },
-          {
-            "kind": "text",
-            "spelling": " "
-          },
-          {
-            "kind": "identifier",
-            "spelling": "replay"
-          },
-          {
-            "kind": "text",
-            "spelling": "("
-          },
-          {
-            "kind": "typeIdentifier",
-            "spelling": "SpeechItemID",
-            "preciseIdentifier": "s:13AppLocalVoice12SpeechItemIDV"
-          },
-          {
-            "kind": "text",
-            "spelling": ", "
-          },
-          {
-            "kind": "externalParam",
-            "spelling": "policy"
-          },
-          {
-            "kind": "text",
-            "spelling": ": "
-          },
-          {
-            "kind": "typeIdentifier",
-            "spelling": "SpeechEnqueuePolicy",
-            "preciseIdentifier": "s:13AppLocalVoice19SpeechEnqueuePolicyO"
-          },
-          {
-            "kind": "text",
-            "spelling": ")"
-          }
-        ],
-        "availability": null
-      }
-    },
-    {
-      "precise": "s:13AppLocalVoice18SpeechQueueCommandO6resumeyA2CmF",
-      "title": "SpeechQueueCommand.resume",
-      "kind": "swift.enum.case",
-      "fingerprint": {
-        "kind": "swift.enum.case",
-        "pathComponents": [
-          "SpeechQueueCommand",
-          "resume"
-        ],
-        "declarationFragments": [
-          {
-            "kind": "keyword",
-            "spelling": "case"
-          },
-          {
-            "kind": "text",
-            "spelling": " "
-          },
-          {
-            "kind": "identifier",
-            "spelling": "resume"
-          }
-        ],
-        "availability": null
-      }
-    },
-    {
-      "precise": "s:13AppLocalVoice18SpeechQueueCommandO7enqueueyAcA0D11ItemRequestV_AA0D13EnqueuePolicyOtcACmF",
-      "title": "SpeechQueueCommand.enqueue(_:policy:)",
-      "kind": "swift.enum.case",
-      "fingerprint": {
-        "kind": "swift.enum.case",
-        "pathComponents": [
-          "SpeechQueueCommand",
-          "enqueue(_:policy:)"
-        ],
-        "declarationFragments": [
-          {
-            "kind": "keyword",
-            "spelling": "case"
-          },
-          {
-            "kind": "text",
-            "spelling": " "
-          },
-          {
-            "kind": "identifier",
-            "spelling": "enqueue"
-          },
-          {
-            "kind": "text",
-            "spelling": "("
-          },
-          {
-            "kind": "typeIdentifier",
-            "spelling": "SpeechItemRequest",
-            "preciseIdentifier": "s:13AppLocalVoice17SpeechItemRequestV"
-          },
-          {
-            "kind": "text",
-            "spelling": ", "
-          },
-          {
-            "kind": "externalParam",
-            "spelling": "policy"
-          },
-          {
-            "kind": "text",
-            "spelling": ": "
-          },
-          {
-            "kind": "typeIdentifier",
-            "spelling": "SpeechEnqueuePolicy",
-            "preciseIdentifier": "s:13AppLocalVoice19SpeechEnqueuePolicyO"
-          },
-          {
-            "kind": "text",
-            "spelling": ")"
-          }
-        ],
-        "availability": null
-      }
-    },
-    {
       "precise": "s:13AppLocalVoice19EventDeliveryCursorO",
       "title": "EventDeliveryCursor",
       "kind": "swift.enum",
@@ -10726,60 +10305,6 @@
       }
     },
     {
-      "precise": "s:13AppLocalVoice19SpeechControlResultO16noActivePlaybackyA2CmF",
-      "title": "SpeechControlResult.noActivePlayback",
-      "kind": "swift.enum.case",
-      "fingerprint": {
-        "kind": "swift.enum.case",
-        "pathComponents": [
-          "SpeechControlResult",
-          "noActivePlayback"
-        ],
-        "declarationFragments": [
-          {
-            "kind": "keyword",
-            "spelling": "case"
-          },
-          {
-            "kind": "text",
-            "spelling": " "
-          },
-          {
-            "kind": "identifier",
-            "spelling": "noActivePlayback"
-          }
-        ],
-        "availability": null
-      }
-    },
-    {
-      "precise": "s:13AppLocalVoice19SpeechControlResultO16providerRejectedyA2CmF",
-      "title": "SpeechControlResult.providerRejected",
-      "kind": "swift.enum.case",
-      "fingerprint": {
-        "kind": "swift.enum.case",
-        "pathComponents": [
-          "SpeechControlResult",
-          "providerRejected"
-        ],
-        "declarationFragments": [
-          {
-            "kind": "keyword",
-            "spelling": "case"
-          },
-          {
-            "kind": "text",
-            "spelling": " "
-          },
-          {
-            "kind": "identifier",
-            "spelling": "providerRejected"
-          }
-        ],
-        "availability": null
-      }
-    },
-    {
       "precise": "s:13AppLocalVoice19SpeechControlResultO7appliedyA2CmF",
       "title": "SpeechControlResult.applied",
       "kind": "swift.enum.case",
@@ -11392,114 +10917,6 @@
       }
     },
     {
-      "precise": "s:13AppLocalVoice20AudioLifecyclePolicyV08externalD010background12interruption11routeChange14cleanupFailureAcA08ExternaldF0O_AA0c10BackgroundF0OAA0c12InterruptionF0OAA0c5RoutekF0OAA0c7CleanupmF0Otcfc",
-      "title": "init(externalAudio:background:interruption:routeChange:cleanupFailure:)",
-      "kind": "swift.init",
-      "fingerprint": {
-        "kind": "swift.init",
-        "pathComponents": [
-          "AudioLifecyclePolicy",
-          "init(externalAudio:background:interruption:routeChange:cleanupFailure:)"
-        ],
-        "declarationFragments": [
-          {
-            "kind": "keyword",
-            "spelling": "init"
-          },
-          {
-            "kind": "text",
-            "spelling": "("
-          },
-          {
-            "kind": "externalParam",
-            "spelling": "externalAudio"
-          },
-          {
-            "kind": "text",
-            "spelling": ": "
-          },
-          {
-            "kind": "typeIdentifier",
-            "spelling": "ExternalAudioPolicy",
-            "preciseIdentifier": "s:13AppLocalVoice19ExternalAudioPolicyO"
-          },
-          {
-            "kind": "text",
-            "spelling": " = .duck, "
-          },
-          {
-            "kind": "externalParam",
-            "spelling": "background"
-          },
-          {
-            "kind": "text",
-            "spelling": ": "
-          },
-          {
-            "kind": "typeIdentifier",
-            "spelling": "VoiceBackgroundPolicy",
-            "preciseIdentifier": "s:13AppLocalVoice0C16BackgroundPolicyO"
-          },
-          {
-            "kind": "text",
-            "spelling": " = .stop, "
-          },
-          {
-            "kind": "externalParam",
-            "spelling": "interruption"
-          },
-          {
-            "kind": "text",
-            "spelling": ": "
-          },
-          {
-            "kind": "typeIdentifier",
-            "spelling": "VoiceInterruptionPolicy",
-            "preciseIdentifier": "s:13AppLocalVoice0C18InterruptionPolicyO"
-          },
-          {
-            "kind": "text",
-            "spelling": " = .stop, "
-          },
-          {
-            "kind": "externalParam",
-            "spelling": "routeChange"
-          },
-          {
-            "kind": "text",
-            "spelling": ": "
-          },
-          {
-            "kind": "typeIdentifier",
-            "spelling": "VoiceRouteChangePolicy",
-            "preciseIdentifier": "s:13AppLocalVoice0C17RouteChangePolicyO"
-          },
-          {
-            "kind": "text",
-            "spelling": " = .stopAndRequireRestart, "
-          },
-          {
-            "kind": "externalParam",
-            "spelling": "cleanupFailure"
-          },
-          {
-            "kind": "text",
-            "spelling": ": "
-          },
-          {
-            "kind": "typeIdentifier",
-            "spelling": "VoiceCleanupFailurePolicy",
-            "preciseIdentifier": "s:13AppLocalVoice0C20CleanupFailurePolicyO"
-          },
-          {
-            "kind": "text",
-            "spelling": " = .requireExplicitRetry)"
-          }
-        ],
-        "availability": null
-      }
-    },
-    {
       "precise": "s:13AppLocalVoice20AudioLifecyclePolicyV08externalD0AA08ExternaldF0Ovp",
       "title": "externalAudio",
       "kind": "swift.property",
@@ -11536,27 +10953,27 @@
       }
     },
     {
-      "precise": "s:13AppLocalVoice20AudioLifecyclePolicyV10backgroundAA0c10BackgroundF0Ovp",
-      "title": "background",
-      "kind": "swift.property",
+      "precise": "s:13AppLocalVoice20AudioLifecyclePolicyV08externalD0AcA08ExternaldF0O_tcfc",
+      "title": "init(externalAudio:)",
+      "kind": "swift.init",
       "fingerprint": {
-        "kind": "swift.property",
+        "kind": "swift.init",
         "pathComponents": [
           "AudioLifecyclePolicy",
-          "background"
+          "init(externalAudio:)"
         ],
         "declarationFragments": [
           {
             "kind": "keyword",
-            "spelling": "var"
+            "spelling": "init"
           },
           {
             "kind": "text",
-            "spelling": " "
+            "spelling": "("
           },
           {
-            "kind": "identifier",
-            "spelling": "background"
+            "kind": "externalParam",
+            "spelling": "externalAudio"
           },
           {
             "kind": "text",
@@ -11564,27 +10981,30 @@
           },
           {
             "kind": "typeIdentifier",
-            "spelling": "VoiceBackgroundPolicy",
-            "preciseIdentifier": "s:13AppLocalVoice0C16BackgroundPolicyO"
+            "spelling": "ExternalAudioPolicy",
+            "preciseIdentifier": "s:13AppLocalVoice19ExternalAudioPolicyO"
+          },
+          {
+            "kind": "text",
+            "spelling": " = .duck)"
           }
         ],
         "availability": null
       }
     },
     {
-      "precise": "s:13AppLocalVoice20AudioLifecyclePolicyV11routeChangeAA0c5RoutehF0Ovp",
-      "title": "routeChange",
-      "kind": "swift.property",
+      "precise": "s:13AppLocalVoice20RecognitionAudioFileV",
+      "title": "RecognitionAudioFile",
+      "kind": "swift.struct",
       "fingerprint": {
-        "kind": "swift.property",
+        "kind": "swift.struct",
         "pathComponents": [
-          "AudioLifecyclePolicy",
-          "routeChange"
+          "RecognitionAudioFile"
         ],
         "declarationFragments": [
           {
             "kind": "keyword",
-            "spelling": "var"
+            "spelling": "struct"
           },
           {
             "kind": "text",
@@ -11592,30 +11012,21 @@
           },
           {
             "kind": "identifier",
-            "spelling": "routeChange"
-          },
-          {
-            "kind": "text",
-            "spelling": ": "
-          },
-          {
-            "kind": "typeIdentifier",
-            "spelling": "VoiceRouteChangePolicy",
-            "preciseIdentifier": "s:13AppLocalVoice0C17RouteChangePolicyO"
+            "spelling": "RecognitionAudioFile"
           }
         ],
         "availability": null
       }
     },
     {
-      "precise": "s:13AppLocalVoice20AudioLifecyclePolicyV12interruptionAA0c12InterruptionF0Ovp",
-      "title": "interruption",
+      "precise": "s:13AppLocalVoice20RecognitionAudioFileV15maximumDurations0H0Vvp",
+      "title": "maximumDuration",
       "kind": "swift.property",
       "fingerprint": {
         "kind": "swift.property",
         "pathComponents": [
-          "AudioLifecyclePolicy",
-          "interruption"
+          "RecognitionAudioFile",
+          "maximumDuration"
         ],
         "declarationFragments": [
           {
@@ -11628,7 +11039,7 @@
           },
           {
             "kind": "identifier",
-            "spelling": "interruption"
+            "spelling": "maximumDuration"
           },
           {
             "kind": "text",
@@ -11636,22 +11047,154 @@
           },
           {
             "kind": "typeIdentifier",
-            "spelling": "VoiceInterruptionPolicy",
-            "preciseIdentifier": "s:13AppLocalVoice0C18InterruptionPolicyO"
+            "spelling": "Duration",
+            "preciseIdentifier": "s:s8DurationV"
           }
         ],
         "availability": null
       }
     },
     {
-      "precise": "s:13AppLocalVoice20AudioLifecyclePolicyV14cleanupFailureAA0c7CleanuphF0Ovp",
-      "title": "cleanupFailure",
+      "precise": "s:13AppLocalVoice20RecognitionAudioFileV22defaultMaximumDurations0I0VvpZ",
+      "title": "defaultMaximumDuration",
+      "kind": "swift.type.property",
+      "fingerprint": {
+        "kind": "swift.type.property",
+        "pathComponents": [
+          "RecognitionAudioFile",
+          "defaultMaximumDuration"
+        ],
+        "declarationFragments": [
+          {
+            "kind": "keyword",
+            "spelling": "static"
+          },
+          {
+            "kind": "text",
+            "spelling": " "
+          },
+          {
+            "kind": "keyword",
+            "spelling": "let"
+          },
+          {
+            "kind": "text",
+            "spelling": " "
+          },
+          {
+            "kind": "identifier",
+            "spelling": "defaultMaximumDuration"
+          },
+          {
+            "kind": "text",
+            "spelling": ": "
+          },
+          {
+            "kind": "typeIdentifier",
+            "spelling": "Duration",
+            "preciseIdentifier": "s:s8DurationV"
+          }
+        ],
+        "availability": null
+      }
+    },
+    {
+      "precise": "s:13AppLocalVoice20RecognitionAudioFileV22maximumMaximumDurations0I0VvpZ",
+      "title": "maximumMaximumDuration",
+      "kind": "swift.type.property",
+      "fingerprint": {
+        "kind": "swift.type.property",
+        "pathComponents": [
+          "RecognitionAudioFile",
+          "maximumMaximumDuration"
+        ],
+        "declarationFragments": [
+          {
+            "kind": "keyword",
+            "spelling": "static"
+          },
+          {
+            "kind": "text",
+            "spelling": " "
+          },
+          {
+            "kind": "keyword",
+            "spelling": "let"
+          },
+          {
+            "kind": "text",
+            "spelling": " "
+          },
+          {
+            "kind": "identifier",
+            "spelling": "maximumMaximumDuration"
+          },
+          {
+            "kind": "text",
+            "spelling": ": "
+          },
+          {
+            "kind": "typeIdentifier",
+            "spelling": "Duration",
+            "preciseIdentifier": "s:s8DurationV"
+          }
+        ],
+        "availability": null
+      }
+    },
+    {
+      "precise": "s:13AppLocalVoice20RecognitionAudioFileV22minimumMaximumDurations0I0VvpZ",
+      "title": "minimumMaximumDuration",
+      "kind": "swift.type.property",
+      "fingerprint": {
+        "kind": "swift.type.property",
+        "pathComponents": [
+          "RecognitionAudioFile",
+          "minimumMaximumDuration"
+        ],
+        "declarationFragments": [
+          {
+            "kind": "keyword",
+            "spelling": "static"
+          },
+          {
+            "kind": "text",
+            "spelling": " "
+          },
+          {
+            "kind": "keyword",
+            "spelling": "let"
+          },
+          {
+            "kind": "text",
+            "spelling": " "
+          },
+          {
+            "kind": "identifier",
+            "spelling": "minimumMaximumDuration"
+          },
+          {
+            "kind": "text",
+            "spelling": ": "
+          },
+          {
+            "kind": "typeIdentifier",
+            "spelling": "Duration",
+            "preciseIdentifier": "s:s8DurationV"
+          }
+        ],
+        "availability": null
+      }
+    },
+    {
+      "precise": "s:13AppLocalVoice20RecognitionAudioFileV3url10Foundation3URLVvp",
+      "title": "url",
       "kind": "swift.property",
       "fingerprint": {
         "kind": "swift.property",
         "pathComponents": [
-          "AudioLifecyclePolicy",
-          "cleanupFailure"
+          "RecognitionAudioFile",
+          "url"
         ],
         "declarationFragments": [
           {
@@ -11664,7 +11207,7 @@
           },
           {
             "kind": "identifier",
-            "spelling": "cleanupFailure"
+            "spelling": "url"
           },
           {
             "kind": "text",
@@ -11672,8 +11215,65 @@
           },
           {
             "kind": "typeIdentifier",
-            "spelling": "VoiceCleanupFailurePolicy",
-            "preciseIdentifier": "s:13AppLocalVoice0C20CleanupFailurePolicyO"
+            "spelling": "URL",
+            "preciseIdentifier": "s:10Foundation3URLV"
+          }
+        ],
+        "availability": null
+      }
+    },
+    {
+      "precise": "s:13AppLocalVoice20RecognitionAudioFileV3url15maximumDurationAC10Foundation3URLV_s0I0Vtcfc",
+      "title": "init(url:maximumDuration:)",
+      "kind": "swift.init",
+      "fingerprint": {
+        "kind": "swift.init",
+        "pathComponents": [
+          "RecognitionAudioFile",
+          "init(url:maximumDuration:)"
+        ],
+        "declarationFragments": [
+          {
+            "kind": "keyword",
+            "spelling": "init"
+          },
+          {
+            "kind": "text",
+            "spelling": "("
+          },
+          {
+            "kind": "externalParam",
+            "spelling": "url"
+          },
+          {
+            "kind": "text",
+            "spelling": ": "
+          },
+          {
+            "kind": "typeIdentifier",
+            "spelling": "URL",
+            "preciseIdentifier": "s:10Foundation3URLV"
+          },
+          {
+            "kind": "text",
+            "spelling": ", "
+          },
+          {
+            "kind": "externalParam",
+            "spelling": "maximumDuration"
+          },
+          {
+            "kind": "text",
+            "spelling": ": "
+          },
+          {
+            "kind": "typeIdentifier",
+            "spelling": "Duration",
+            "preciseIdentifier": "s:s8DurationV"
+          },
+          {
+            "kind": "text",
+            "spelling": " = Self.defaultMaximumDuration)"
           }
         ],
         "availability": null
@@ -16531,6 +16131,114 @@
       }
     },
     {
+      "precise": "s:13AppLocalVoice31RecognitionSessionConfigurationV11recognition5input17publicationPolicy09lifecycleJ007maximumD8DurationAcA0dF0V_AA0D5InputOAA021TranscriptPublicationJ0OAA014AudioLifecycleJ0Vs0M0VSgtcfc",
+      "title": "init(recognition:input:publicationPolicy:lifecyclePolicy:maximumRecognitionDuration:)",
+      "kind": "swift.init",
+      "fingerprint": {
+        "kind": "swift.init",
+        "pathComponents": [
+          "RecognitionSessionConfiguration",
+          "init(recognition:input:publicationPolicy:lifecyclePolicy:maximumRecognitionDuration:)"
+        ],
+        "declarationFragments": [
+          {
+            "kind": "keyword",
+            "spelling": "init"
+          },
+          {
+            "kind": "text",
+            "spelling": "("
+          },
+          {
+            "kind": "externalParam",
+            "spelling": "recognition"
+          },
+          {
+            "kind": "text",
+            "spelling": ": "
+          },
+          {
+            "kind": "typeIdentifier",
+            "spelling": "RecognitionConfiguration",
+            "preciseIdentifier": "s:13AppLocalVoice24RecognitionConfigurationV"
+          },
+          {
+            "kind": "text",
+            "spelling": " = .init(), "
+          },
+          {
+            "kind": "externalParam",
+            "spelling": "input"
+          },
+          {
+            "kind": "text",
+            "spelling": ": "
+          },
+          {
+            "kind": "typeIdentifier",
+            "spelling": "RecognitionInput",
+            "preciseIdentifier": "s:13AppLocalVoice16RecognitionInputO"
+          },
+          {
+            "kind": "text",
+            "spelling": ", "
+          },
+          {
+            "kind": "externalParam",
+            "spelling": "publicationPolicy"
+          },
+          {
+            "kind": "text",
+            "spelling": ": "
+          },
+          {
+            "kind": "typeIdentifier",
+            "spelling": "TranscriptPublicationPolicy",
+            "preciseIdentifier": "s:13AppLocalVoice27TranscriptPublicationPolicyO"
+          },
+          {
+            "kind": "text",
+            "spelling": " = .previewAndFinal, "
+          },
+          {
+            "kind": "externalParam",
+            "spelling": "lifecyclePolicy"
+          },
+          {
+            "kind": "text",
+            "spelling": ": "
+          },
+          {
+            "kind": "typeIdentifier",
+            "spelling": "AudioLifecyclePolicy",
+            "preciseIdentifier": "s:13AppLocalVoice20AudioLifecyclePolicyV"
+          },
+          {
+            "kind": "text",
+            "spelling": " = .init(), "
+          },
+          {
+            "kind": "externalParam",
+            "spelling": "maximumRecognitionDuration"
+          },
+          {
+            "kind": "text",
+            "spelling": ": "
+          },
+          {
+            "kind": "typeIdentifier",
+            "spelling": "Duration",
+            "preciseIdentifier": "s:s8DurationV"
+          },
+          {
+            "kind": "text",
+            "spelling": "? = Self.defaultMaximumRecognitionDuration)"
+          }
+        ],
+        "availability": null
+      }
+    },
+    {
       "precise": "s:13AppLocalVoice31RecognitionSessionConfigurationV11recognitionAA0dF0Vvp",
       "title": "recognition",
       "kind": "swift.property",
@@ -16633,6 +16341,42 @@
             "kind": "typeIdentifier",
             "spelling": "TranscriptPublicationPolicy",
             "preciseIdentifier": "s:13AppLocalVoice27TranscriptPublicationPolicyO"
+          }
+        ],
+        "availability": null
+      }
+    },
+    {
+      "precise": "s:13AppLocalVoice31RecognitionSessionConfigurationV5inputAA0D5InputOvp",
+      "title": "input",
+      "kind": "swift.property",
+      "fingerprint": {
+        "kind": "swift.property",
+        "pathComponents": [
+          "RecognitionSessionConfiguration",
+          "input"
+        ],
+        "declarationFragments": [
+          {
+            "kind": "keyword",
+            "spelling": "var"
+          },
+          {
+            "kind": "text",
+            "spelling": " "
+          },
+          {
+            "kind": "identifier",
+            "spelling": "input"
+          },
+          {
+            "kind": "text",
+            "spelling": ": "
+          },
+          {
+            "kind": "typeIdentifier",
+            "spelling": "RecognitionInput",
+            "preciseIdentifier": "s:13AppLocalVoice16RecognitionInputO"
           }
         ],
         "availability": null

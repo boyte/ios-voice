@@ -28,7 +28,7 @@ final class RecognitionFacadeContractTests: XCTestCase {
         let input = ControlledSpeechInput()
         await input.setStartBlocked(true)
         let voice = AppLocalVoice(input: input, output: ControlledSpeechOutput())
-        let stream = await voice.recognitionEvents()
+        let stream = await voice.voiceEvents()
         let eventsTask = Task { try await collectRecognitionEventsThroughOutcome(stream) }
 
         let acceptance = try await voice.startSession()
@@ -96,7 +96,7 @@ final class RecognitionFacadeContractTests: XCTestCase {
         let input = ControlledSpeechInput()
         await input.setFailure(HarnessFailure(stage: .model, message: "fixture startup failure"))
         let voice = AppLocalVoice(input: input, output: ControlledSpeechOutput())
-        let stream = await voice.recognitionEvents()
+        let stream = await voice.voiceEvents()
         let eventsTask = Task { try await collectRecognitionEventsThroughOutcome(stream) }
 
         let acceptance = try await voice.startSession()
@@ -135,40 +135,10 @@ final class RecognitionFacadeContractTests: XCTestCase {
         await voice.close()
     }
 
-    func testLegacyListeningUsesTheSameTypedSessionEngine() async throws {
-        let input = ControlledSpeechInput()
-        let voice = AppLocalVoice(input: input, output: ControlledSpeechOutput())
-        let stream = await voice.recognitionEvents()
-        let eventsTask = Task { try await collectRecognitionEventsThroughOutcome(stream) }
-
-        try await voice.startListening()
-        await input.send(TranscriptUpdate(text: "legacy", isFinal: false))
-        let legacyFinal = try await voice.finishListening()
-        XCTAssertEqual(legacyFinal, "legacy")
-
-        let events = try await eventsTask.value
-        guard case .accepted = events.first?.kind else {
-            XCTFail("Legacy admission must create the canonical typed session")
-            return
-        }
-        guard case .transcript(.finalTranscript(let final)) = events.dropLast().last?.kind else {
-            XCTFail("Expected final transcript immediately before terminal")
-            return
-        }
-        XCTAssertEqual(final.text, "legacy")
-        XCTAssertEqual(events.last?.kind, .outcome(.completed))
-        // State and preview events are advisory and may coalesce while the
-        // consumer is not running. Durable acceptance, transcript, and
-        // terminal events retain their ordering; skipped ordinals are valid
-        // for the compatibility projection.
-        assertStrictlyIncreasingOrdinals(events)
-        await voice.close()
-    }
-
     func testDurationLimitStartsAfterListeningAndFinalizesWithCachedResult() async throws {
         let input = ControlledSpeechInput()
         let voice = AppLocalVoice(input: input, output: ControlledSpeechOutput())
-        let stream = await voice.recognitionEvents()
+        let stream = await voice.voiceEvents()
         let eventsTask = Task { try await collectRecognitionEventsThroughOutcome(stream) }
 
         let acceptance = try await voice.startSession(configuration: .init(
@@ -193,6 +163,47 @@ final class RecognitionFacadeContractTests: XCTestCase {
                 maximumRecognitionDuration: .milliseconds(999)
             ))
             XCTFail("Sub-second duration must be rejected")
+        } catch let error as VoiceError {
+            XCTAssertEqual(error.category, .invalidRecognitionConfiguration)
+        }
+        let state = await voice.state
+        XCTAssertEqual(state, .idle)
+        await voice.close()
+    }
+
+    func testCompletedAudioFileSessionBypassesMicrophonePermissionAndCaptureLease() async throws {
+        let ledger = ResourceLedger()
+        let input = ControlledSpeechInput(ledger: ledger)
+        let voice = AppLocalVoice(input: input, output: ControlledSpeechOutput(ledger: ledger))
+        let configuration = RecognitionSessionConfiguration(
+            input: .audioFile(.init(url: URL(fileURLWithPath: "/tmp/recording.m4a"))),
+            maximumRecognitionDuration: .seconds(1)
+        )
+
+        let acceptance = try await voice.startSession(configuration: configuration)
+        await waitForFacadeState(.listening, voice: voice)
+        let permissionRequests = await input.microphonePermissionRequests
+        let lastInput = await input.lastInput
+        let microphoneCount = await ledger.count(.microphone)
+        XCTAssertEqual(permissionRequests, 0)
+        XCTAssertEqual(lastInput, configuration.input)
+        XCTAssertEqual(microphoneCount.acquired, 0)
+
+        let final = try await voice.finishSession(id: acceptance.sessionID)
+        XCTAssertEqual(final.text, "")
+        let resourcesBalanced = await ledger.isBalanced()
+        XCTAssertTrue(resourcesBalanced)
+        await voice.close()
+    }
+
+    func testCompletedAudioFileRejectsNonLocalURLBeforeSessionAcceptance() async throws {
+        let voice = AppLocalVoice(input: ControlledSpeechInput(), output: ControlledSpeechOutput())
+
+        do {
+            _ = try await voice.startSession(configuration: .init(
+                input: .audioFile(.init(url: URL(string: "https://example.com/recording.m4a")!))
+            ))
+            XCTFail("A remote URL must be rejected before session acceptance")
         } catch let error as VoiceError {
             XCTAssertEqual(error.category, .invalidRecognitionConfiguration)
         }
@@ -311,11 +322,15 @@ private func waitForFacadeState(
     }
 }
 
+/// Collects the recognition events of the canonical stream through the first
+/// terminal outcome. Snapshot, speech, and recovery events are not recognition
+/// events and are skipped.
 private func collectRecognitionEventsThroughOutcome(
-    _ stream: AsyncThrowingStream<RecognitionEvent, Error>
+    _ stream: VoiceEventStream
 ) async throws -> [RecognitionEvent] {
     var events: [RecognitionEvent] = []
-    for try await event in stream {
+    for try await streamEvent in stream {
+        guard case .recognition(let event) = streamEvent else { continue }
         events.append(event)
         if event.kind.isTerminal { return events }
     }

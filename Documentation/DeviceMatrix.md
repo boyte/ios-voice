@@ -4,10 +4,10 @@ Physical testing is required for audio claims. The simulator can validate state
 and deterministic adapters but cannot prove hardware routing, interruptions,
 voice quality, energy use, or Apple model installation.
 
-Use `Scripts/run-device-validation.sh <physical-device-udid>` to capture the
-automated package-test evidence and create a report scaffold. Complete the
-manual scenario table in the generated report before treating a device cell
-as validated.
+Run the package test action on the connected device
+(`xcodebuild test -project Testing/AppLocalVoice.xcodeproj -scheme
+AppLocalVoiceTests -destination 'platform=iOS,id=<udid>'`), then work through
+the matrix below by hand and record results with the template.
 
 ## Release matrix
 
@@ -24,6 +24,7 @@ OS version, OS build, Xcode, SDK, and route for every report.
 | model | installed, missing, installation allowed, installation interrupted | record outcome |
 | voices | compact-only, enhanced installed, premium installed, requested id missing | record selected voice and reported quality |
 | permissions | first run, denied, restricted, later approved | record recovery |
+| completed audio file | valid short file, empty/corrupt file, unsupported encoding, over-duration file, over-size file, cancel during decoding, finish after decoding | record terminal outcome and confirm no microphone permission, route, or audio-session change |
 | system events | call, Siri, alarm/notification, media-services reset, background, lock/unlock | record terminal behavior |
 | endurance | rapid turns and 30-minute repeated use, active close, process relaunch | record leaks, heat, memory, and recovery |
 
@@ -62,3 +63,7 @@ unknowns explicitly.
   whether Instruments or MetricKit was used.
 - Thermal/energy observations identify the tool and sampling interval; no
   simulator result substitutes for a device measurement.
+- Completed-file recognition must additionally show that the host-owned file
+  remains readable through finalization and that the active media route and
+  external audio are unchanged. It is not a substitute for microphone-route
+  validation.

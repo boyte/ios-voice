@@ -11,8 +11,8 @@ private typealias IllegalTransition = @Sendable (VoiceCoordinator) async throws 
 final class StateMachineTransitionTableTests: XCTestCase {
     func testLegalTransitionTable() async throws {
         let rows: [(name: String, run: LegalTransition)] = [
-            ("idle.startListening", { coordinator, _, _ in
-                try await coordinator.startListening()
+            ("idle.startTurn", { coordinator, _, _ in
+                try await coordinator.startTurn()
                 return await coordinator.state
             }),
             ("idle.close", { coordinator, _, _ in
@@ -20,42 +20,49 @@ final class StateMachineTransitionTableTests: XCTestCase {
                 return await coordinator.state
             }),
             ("idle.speak", { coordinator, _, output in
-                let task = Task { try await coordinator.speak("table") }
+                let task = Task { try await coordinator.speakNow("table") }
                 await output.waitUntilStarted()
                 let state = await coordinator.state
                 await coordinator.stopSpeaking()
                 _ = try? await task.value
                 return state
             }),
-            ("listening.finishListening", { coordinator, input, _ in
-                try await coordinator.startListening()
-                _ = try await coordinator.endListening()
+            ("listening.finishTurn", { coordinator, _, _ in
+                try await coordinator.startTurn()
+                _ = try await coordinator.finishTurn()
                 return await coordinator.state
             }),
-            ("listening.cancelListening", { coordinator, _, _ in
-                try await coordinator.startListening()
-                await coordinator.cancelListening()
+            ("listening.cancelTurn", { coordinator, _, _ in
+                try await coordinator.startTurn()
+                await coordinator.cancelTurn()
                 return await coordinator.state
             }),
+            // The legacy row paused/resumed immediate playback. Immediate
+            // playback has no host pause/resume, so this documents the same
+            // "speaking stays speaking through pause/resume" transition using
+            // the queued playback surface that does expose it.
             ("speaking.pauseResume", { coordinator, _, output in
-                let task = Task { try await coordinator.speak("table") }
+                _ = try await coordinator.enqueueSpeech(SpeechItemRequest(text: "table"))
                 await output.waitUntilStarted()
-                await coordinator.pauseSpeaking()
-                await coordinator.resumeSpeaking()
+                _ = await coordinator.pauseSpeechQueue()
+                _ = await coordinator.resumeSpeechQueue()
                 let state = await coordinator.state
-                await coordinator.stopSpeaking()
-                _ = try? await task.value
+                let pauses = await output.pauses
+                let resumes = await output.resumes
+                XCTAssertEqual(pauses, 1, "speaking.pauseResume")
+                XCTAssertEqual(resumes, 1, "speaking.pauseResume")
+                _ = await coordinator.stopSpeechQueue()
                 return state
             }),
             ("speaking.stop", { coordinator, _, output in
-                let task = Task { try await coordinator.speak("table") }
+                let task = Task { try await coordinator.speakNow("table") }
                 await output.waitUntilStarted()
                 await coordinator.stopSpeaking()
                 _ = try? await task.value
                 return await coordinator.state
             }),
             ("any.close", { coordinator, _, _ in
-                try await coordinator.startListening()
+                try await coordinator.startTurn()
                 await coordinator.close()
                 return await coordinator.state
             })
@@ -71,7 +78,7 @@ final class StateMachineTransitionTableTests: XCTestCase {
                 try await row.run(coordinator, input, output)
             }
             let expectedState: VoiceState = switch row.name {
-            case "idle.startListening": .listening
+            case "idle.startTurn": .listening
             case "idle.speak", "speaking.pauseResume": .speaking
             default: .idle
             }
@@ -84,14 +91,14 @@ final class StateMachineTransitionTableTests: XCTestCase {
 
     func testIllegalTransitionTableRejectsBeforeProviderReentry() async throws {
         let rows: [(name: String, prepare: TransitionPreparation, operation: IllegalTransition)] = [
-            ("idle.finishListening", { _, _ in }, { coordinator in _ = try await coordinator.endListening() }),
-            ("listening.startListening", { coordinator, _ in try await coordinator.startListening() }, { coordinator in try await coordinator.startListening() }),
-            ("listening.speak", { coordinator, _ in try await coordinator.startListening() }, { coordinator in try await coordinator.speak("blocked") }),
-            ("speaking.finishListening", { coordinator, output in
-                let task = Task { try await coordinator.speak("active") }
+            ("idle.finishTurn", { _, _ in }, { coordinator in _ = try await coordinator.finishTurn() }),
+            ("listening.startTurn", { coordinator, _ in try await coordinator.startTurn() }, { coordinator in try await coordinator.startTurn() }),
+            ("listening.speak", { coordinator, _ in try await coordinator.startTurn() }, { coordinator in try await coordinator.speakNow("blocked") }),
+            ("speaking.finishTurn", { coordinator, output in
+                let task = Task { try await coordinator.speakNow("active") }
                 await output.waitUntilStarted()
                 _ = task
-            }, { coordinator in _ = try await coordinator.endListening() })
+            }, { coordinator in _ = try await coordinator.finishTurn() })
         ]
 
         for row in rows {
@@ -106,7 +113,7 @@ final class StateMachineTransitionTableTests: XCTestCase {
                 XCTFail("\(row.name) unexpectedly succeeded")
             } catch let error as VoiceError {
                 let expectedError: VoiceError = switch row.name {
-                case "idle.finishListening", "speaking.finishListening":
+                case "idle.finishTurn", "speaking.finishTurn":
                     .invalidState("Voice input is not active.")
                 default:
                     .invalidState("A voice operation is already active.")
@@ -122,7 +129,7 @@ final class StateMachineTransitionTableTests: XCTestCase {
                 return true
             }
             let starts = await input.starts
-            XCTAssertEqual(starts, row.name == "idle.finishListening" ? 0 : (row.name.hasPrefix("listening") ? 1 : 0), row.name)
+            XCTAssertEqual(starts, row.name == "idle.finishTurn" ? 0 : (row.name.hasPrefix("listening") ? 1 : 0), row.name)
             XCTAssertTrue(balanced, row.name)
         }
     }

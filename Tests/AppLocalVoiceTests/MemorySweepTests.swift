@@ -18,8 +18,8 @@ final class MemorySweepTests: XCTestCase {
             let before = residentMemoryBytesForSweep()
 
             for _ in 0..<budget {
-                try await coordinator.startListening()
-                await coordinator.cancelListening()
+                try await coordinator.startTurn()
+                await coordinator.cancelTurn()
             }
 
             await coordinator.close()

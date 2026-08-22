@@ -6,9 +6,6 @@ import Foundation
 actor ResourceLedger {
     enum Resource: Hashable, Sendable {
         case microphone
-        case audioSession
-        case analyzer
-        case converter
         case speech
     }
 
@@ -61,7 +58,7 @@ actor ControlledSpeechInput: SpeechInput {
     let ledger: ResourceLedger
     var capabilitiesValue = SpeechCapabilities(locale: .current, isSupported: true, supportsOnDevice: true)
     var microphonePermission = true
-    var authorization: SpeechAuthorization = .authorized
+    var authorization: VoicePermissionStatus = .authorized
     var failure: HarnessFailure?
     var latestText = ""
     var cleanupBlocked = false
@@ -72,9 +69,12 @@ actor ControlledSpeechInput: SpeechInput {
 
     private(set) var starts = 0
     private(set) var lastConfiguration: RecognitionConfiguration?
+    private(set) var lastInput: RecognitionInput?
+    private(set) var microphonePermissionRequests = 0
     private(set) var stops = 0
     private(set) var cancels = 0
     private(set) var isActive = false
+    private var activeOwnsMicrophone = false
     private var continuation: AsyncThrowingStream<TranscriptUpdate, Error>.Continuation?
     private var preparationPhases: [RecognitionPreparationPhase] = []
     private var preparationInstalledModel = false
@@ -131,12 +131,13 @@ actor ControlledSpeechInput: SpeechInput {
         return capabilitiesValue
     }
 
-    func requestAuthorization() async -> SpeechAuthorization {
+    func requestAuthorization() async -> VoicePermissionStatus {
         failure?.stage == .speechAuthorization ? .denied : authorization
     }
 
     func requestMicrophonePermission() async -> Bool {
-        failure?.stage == .microphonePermission ? false : microphonePermission
+        microphonePermissionRequests += 1
+        return failure?.stage == .microphonePermission ? false : microphonePermission
     }
 
     func prepareRecognition(
@@ -159,9 +160,15 @@ actor ControlledSpeechInput: SpeechInput {
         return preparationInstalledModel
     }
 
-    func start(configuration: RecognitionConfiguration) async throws -> AsyncThrowingStream<TranscriptUpdate, Error> {
+    func start(
+        configuration: RecognitionConfiguration,
+        input: RecognitionInput,
+        lifecyclePolicy: AudioLifecyclePolicy
+    ) async throws -> AsyncThrowingStream<TranscriptUpdate, Error> {
+        _ = lifecyclePolicy
         starts += 1
         lastConfiguration = configuration
+        lastInput = input
         if startBlocked {
             startEntered = true
             let waiters = startEntryWaiters
@@ -178,7 +185,10 @@ actor ControlledSpeechInput: SpeechInput {
             throw VoiceError.audioSessionUnavailable("Host audio is active.")
         }
         isActive = true
-        await ledger.acquire(.microphone)
+        activeOwnsMicrophone = input == .microphone
+        if activeOwnsMicrophone {
+            await ledger.acquire(.microphone)
+        }
         if let failure, failure.stage == .sessionActivation {
             await releaseCapture()
             throw failure
@@ -234,7 +244,10 @@ actor ControlledSpeechInput: SpeechInput {
     private func releaseCapture() async {
         guard isActive else { return }
         isActive = false
-        await ledger.release(.microphone)
+        if activeOwnsMicrophone {
+            activeOwnsMicrophone = false
+            await ledger.release(.microphone)
+        }
     }
 }
 
@@ -256,7 +269,7 @@ actor ControlledSpeechOutput: SpeechOutput {
 
     func availableVoices(for locale: Locale) async -> [SpeechVoice] { [] }
 
-    func speak(_ text: String, configuration: SpeechConfiguration) async throws {
+    func speak(_ text: String, configuration: SpeechConfiguration, lifecyclePolicy: AudioLifecyclePolicy) async throws {
         starts += 1
         spoken.append(text)
         if let failure, failure.stage == .speech { throw failure }

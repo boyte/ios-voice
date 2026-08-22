@@ -350,38 +350,14 @@ final class AudioSessionControllerTests: XCTestCase {
     func testCoordinatorForwardsStoredLifecyclePolicyThroughTheInputSeam() async throws {
         let input = LifecycleCapturingSpeechInput()
         let coordinator = VoiceCoordinator(input: input, output: ControlledSpeechOutput())
-        let policy = AudioLifecyclePolicy(
-            externalAudio: .interrupt,
-            routeChange: .stopAndRequireRestart
-        )
+        let policy = AudioLifecyclePolicy(externalAudio: .interrupt)
 
         _ = try await coordinator.startSession(configuration: .init(lifecyclePolicy: policy))
         await input.waitUntilStarted()
 
         let receivedPolicy = await input.receivedLifecyclePolicy
         XCTAssertEqual(receivedPolicy, policy)
-        await coordinator.cancelListening()
-    }
-
-    func testLegacySpeechInputRejectsCustomLifecyclePolicyInsteadOfIgnoringIt() async {
-        let input = LegacyLifecycleSpeechInput()
-
-        do {
-            _ = try await input.start(
-                configuration: .init(),
-                lifecyclePolicy: .init(externalAudio: .mix)
-            )
-            XCTFail("legacy providers must reject unsupported lifecycle policies")
-        } catch let error as VoiceError {
-            XCTAssertEqual(
-                error,
-                .invalidRecognitionConfiguration(
-                    "This speech input provider does not support a non-default audio lifecycle policy."
-                )
-            )
-        } catch {
-            XCTFail("Unexpected error: \(error)")
-        }
+        await coordinator.cancelTurn()
     }
 
     func testReentrantBrokerMutationIsRejectedWithoutDoubleActivation() throws {
@@ -505,7 +481,7 @@ private final class TestAudioSessionDriver: @unchecked Sendable, AudioSessionDri
         preferredInputUID: nil
     )
 
-    func configureForVoice() throws {
+    private func configureForVoice() throws {
         configureCalls += 1
         currentSnapshot = AudioSessionSnapshot(
             category: "voice",
@@ -613,17 +589,10 @@ private actor LifecycleCapturingSpeechInput: SpeechInput {
         SpeechCapabilities(locale: locale, isSupported: true, supportsOnDevice: true)
     }
 
-    func requestAuthorization() async -> SpeechAuthorization { .authorized }
+    func requestAuthorization() async -> VoicePermissionStatus { .authorized }
     func requestMicrophonePermission() async -> Bool { true }
 
-    func start(configuration: RecognitionConfiguration) async throws -> AsyncThrowingStream<TranscriptUpdate, Error> {
-        try await start(configuration: configuration, lifecyclePolicy: .init())
-    }
-
-    func start(
-        configuration: RecognitionConfiguration,
-        lifecyclePolicy: AudioLifecyclePolicy
-    ) async throws -> AsyncThrowingStream<TranscriptUpdate, Error> {
+    func start(configuration: RecognitionConfiguration, input: RecognitionInput, lifecyclePolicy: AudioLifecyclePolicy) async throws -> AsyncThrowingStream<TranscriptUpdate, Error> {
         receivedLifecyclePolicy = lifecyclePolicy
         started = true
         let waiters = startWaiters
@@ -651,18 +620,3 @@ private actor LifecycleCapturingSpeechInput: SpeechInput {
     }
 }
 
-private actor LegacyLifecycleSpeechInput: SpeechInput {
-    func capabilities(for locale: Locale) async -> SpeechCapabilities {
-        SpeechCapabilities(locale: locale, isSupported: true, supportsOnDevice: true)
-    }
-
-    func requestAuthorization() async -> SpeechAuthorization { .authorized }
-    func requestMicrophonePermission() async -> Bool { true }
-
-    func start(configuration: RecognitionConfiguration) async throws -> AsyncThrowingStream<TranscriptUpdate, Error> {
-        AsyncThrowingStream { $0.finish() }
-    }
-
-    func stop() async throws -> String { "" }
-    func cancel() async {}
-}

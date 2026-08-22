@@ -262,36 +262,12 @@ public struct SpeechQueueConfiguration: Sendable, Equatable {
     }
 }
 
-/// Provider-neutral queue command seam for the later queue implementation.
-public enum SpeechQueueCommand: Sendable, Equatable {
-    /// Enqueue a validated request using the specified placement policy.
-    case enqueue(SpeechItemRequest, policy: SpeechEnqueuePolicy)
-    /// Pause active queued playback.
-    case pause
-    /// Resume queued playback.
-    case resume
-    /// Stop the active queued playback.
-    case stop
-    /// Skip the active queued item.
-    case skip
-    /// Cancel pending queued items without changing active playback.
-    case clearPending
-    /// Stop active playback and cancel all pending items.
-    case stopAndClear
-    /// Replay a retained item using the specified placement policy.
-    case replay(SpeechItemID, policy: SpeechEnqueuePolicy)
-}
-
 /// Result of an idempotent pause or resume request.
 public enum SpeechControlResult: Sendable, Equatable {
     /// The requested control operation changed queue or provider state.
     case applied
     /// The requested state was already in effect.
     case alreadyApplied
-    /// No queued playback was active for the requested operation.
-    case noActivePlayback
-    /// The speech provider rejected the requested control operation.
-    case providerRejected
 }
 
 /// Why an accepted playback attempt was cancelled.

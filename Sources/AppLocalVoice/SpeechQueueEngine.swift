@@ -173,7 +173,6 @@ actor SpeechQueueEngine {
         }
         return SpeechQueueSnapshot(mode: mode, active: current.map(value), pending: pending.map(value), retainedItemIDs: replayOrder, generation: mutationGeneration)
     }
-    func hasOutstandingWork() -> Bool { current != nil || !pending.isEmpty }
     func clearReplayHistory() {
         guard !items.isEmpty || !replayOrder.isEmpty else { return }
         items.removeAll(keepingCapacity: false)

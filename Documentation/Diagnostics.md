@@ -37,6 +37,6 @@ preserves the zero-diagnostics default and does not change lifecycle behavior.
 
 Group records by `operationID`, inspect the terminal phase and
 `errorCategory`, then compare `routeClass`, `state`, and elapsed duration.
-Use `VoiceEvent` and the public error for user-facing recovery. Operation IDs
+Use `voiceEvents()` and the public error for user-facing recovery. Operation IDs
 are correlation tokens, not durable user or device identifiers; do not combine
 them with speech content in a shared telemetry payload.

@@ -916,7 +916,7 @@ private final class OutputAudioSessionDriver: @unchecked Sendable, AudioSessionD
 
     var isOtherAudioPlaying: Bool { false }
 
-    func configureForVoice() throws {}
+    func configure(for role: AudioSessionRole, externalAudio: ExternalAudioPolicy, isOtherAudioPlaying: Bool) throws {}
 
     func snapshot() -> AudioSessionSnapshot { lock.withLock { currentSnapshot } }
 

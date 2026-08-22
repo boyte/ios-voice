@@ -22,59 +22,19 @@ public enum ExternalAudioPolicy: Sendable, Equatable {
     case reject
 }
 
-/// Policy applied when an ordinary application enters the background.
-/// Listening always ends and playback never silently resumes on foreground.
-public enum VoiceBackgroundPolicy: Sendable, Equatable {
-    /// Stop active audio work when the application enters the background.
-    case stop
-}
-
-/// Policy for phone, Siri, alarm, and similar system interruptions.
-/// Active work stops and a later user action is required to restart or resume.
-public enum VoiceInterruptionPolicy: Sendable, Equatable {
-    /// Stop active work and require a later explicit host action to restart it.
-    case stop
-}
-
-/// Policy for an invalidated route. Active work stops and requires an explicit
-/// user restart.
-public enum VoiceRouteChangePolicy: Sendable, Equatable {
-    /// Stop active work and require an explicit host restart after the route changes.
-    case stopAndRequireRestart
-}
-
-/// Bounded cleanup retry behavior after logical operation termination.
-public enum VoiceCleanupFailurePolicy: Sendable, Equatable {
-    /// Keep the service blocked until the host explicitly retries cleanup.
-    case requireExplicitRetry
-}
-
 /// Process audio behavior selected for a host-ready session and speech queue.
+///
+/// Backgrounding, system interruptions, and route invalidation always stop
+/// active work and require an explicit host restart; blocked cleanup always
+/// requires an explicit `close()` retry. Only the external-audio policy is
+/// configurable.
 public struct AudioLifecyclePolicy: Sendable, Equatable {
     /// Policy for audio that is already playing outside AppLocalVoice.
     public var externalAudio: ExternalAudioPolicy
-    /// Policy applied when the application enters the background.
-    public var background: VoiceBackgroundPolicy
-    /// Policy applied to phone, Siri, alarm, and similar system interruptions.
-    public var interruption: VoiceInterruptionPolicy
-    /// Policy applied when the active audio route is invalidated.
-    public var routeChange: VoiceRouteChangePolicy
-    /// Policy applied when resource cleanup does not complete immediately.
-    public var cleanupFailure: VoiceCleanupFailurePolicy
 
-    /// Creates an audio lifecycle policy with conservative restart and cleanup defaults.
-    public init(
-        externalAudio: ExternalAudioPolicy = .duck,
-        background: VoiceBackgroundPolicy = .stop,
-        interruption: VoiceInterruptionPolicy = .stop,
-        routeChange: VoiceRouteChangePolicy = .stopAndRequireRestart,
-        cleanupFailure: VoiceCleanupFailurePolicy = .requireExplicitRetry
-    ) {
+    /// Creates an audio lifecycle policy.
+    public init(externalAudio: ExternalAudioPolicy = .duck) {
         self.externalAudio = externalAudio
-        self.background = background
-        self.interruption = interruption
-        self.routeChange = routeChange
-        self.cleanupFailure = cleanupFailure
     }
 }
 

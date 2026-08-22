@@ -14,9 +14,18 @@ final class AppleSpeechInputSeamTests: XCTestCase {
         let sourceURL = packageRoot
             .appendingPathComponent("Sources/AppLocalVoice/AppleSpeechInput.swift")
         let source = String(decoding: try Data(contentsOf: sourceURL), as: UTF8.self)
+        // The factory lives in the provider support file; the capture path in
+        // the actor must call it rather than construct a transcriber itself.
+        let sourcesDirectory = packageRoot.appendingPathComponent("Sources/AppLocalVoice")
+        let allProviderSources = try FileManager.default
+            .contentsOfDirectory(atPath: sourcesDirectory.path)
+            .filter { $0.hasSuffix(".swift") }
+            .sorted()
+            .map { try String(contentsOf: sourcesDirectory.appendingPathComponent($0), encoding: .utf8) }
+            .joined(separator: "\n")
 
         XCTAssertEqual(
-            source.components(separatedBy: "SpeechTranscriber(").count - 1,
+            allProviderSources.components(separatedBy: "SpeechTranscriber(").count - 1,
             1,
             "The shared factory must remain the sole SpeechTranscriber construction site."
         )
@@ -28,8 +37,8 @@ final class AppleSpeechInputSeamTests: XCTestCase {
         )
         let preparation = try sourceSlice(
             source,
-            from: "    func prepareRecognition(for locale: Locale",
-            to: "    func start(configuration: RecognitionConfiguration)"
+            from: "    func prepareRecognition(\n        for locale: Locale,",
+            to: "    func start(\n        configuration: RecognitionConfiguration,"
         )
         let capture = try sourceSlice(
             source,
@@ -103,7 +112,7 @@ final class AppleSpeechInputSeamTests: XCTestCase {
         let preparation = try sourceSlice(
             source,
             from: "    func prepareRecognition(\n        for locale: Locale,",
-            to: "    func start(configuration: RecognitionConfiguration)"
+            to: "    func start(\n        configuration: RecognitionConfiguration,"
         )
 
         XCTAssertTrue(preparation.contains("if status == .downloading"))
@@ -476,7 +485,7 @@ final class AppleSpeechInputSeamTests: XCTestCase {
         XCTAssertEqual(attempts, 2)
     }
 
-    func testNotificationCenterSeamRegistersEveryInputFailureNotification() async {
+    func testCompletedFileInputDoesNotRegisterCaptureNotifications() async {
         let center = RecordingAudioNotificationCenter()
         _ = AppleSpeechInput(
             audioSession: AudioSessionController(),
@@ -484,21 +493,9 @@ final class AppleSpeechInputSeamTests: XCTestCase {
             notificationCenter: center
         )
 
-        // Observer installation is scheduled from the actor initializer. A
-        // single yield is not a reliable synchronization primitive under the
-        // full XCTest runner, so wait only within a small deterministic bound.
-        for _ in 0..<32 where center.addCount < 5 {
-            await Task.yield()
-            try? await Task.sleep(for: .milliseconds(1))
-        }
-        XCTAssertEqual(center.names, [
-            AVAudioSession.interruptionNotification,
-            AVAudioSession.routeChangeNotification,
-            UIApplication.didEnterBackgroundNotification,
-            AVAudioSession.mediaServicesWereLostNotification,
-            AVAudioSession.mediaServicesWereResetNotification
-        ])
-        XCTAssertEqual(center.addCount, 5)
+        await Task.yield()
+        XCTAssertTrue(center.names.isEmpty)
+        XCTAssertEqual(center.addCount, 0)
     }
 
     func testAnalyzerFailureDriverCanBeConstructedWithoutAppleAnalyzer() async throws {
@@ -536,8 +533,13 @@ final class AppleSpeechInputSeamTests: XCTestCase {
             from: "        let results = AsyncThrowingStream<TranscriptUpdate, Error>(",
             to: "        let node = audioEngine.inputNode"
         )
+        // The analysis worker boundary lives in the provider support file.
+        let supportURL = sourceURL
+            .deletingLastPathComponent()
+            .appendingPathComponent("AppleSpeechInputSupport.swift")
+        let supportSource = String(decoding: try Data(contentsOf: supportURL), as: UTF8.self)
         let workerBoundary = try sourceSlice(
-            source,
+            supportSource,
             from: "enum SpeechAnalysisWorkerResult: Sendable",
             to: "final class DefaultAudioEngineSafety"
         )
@@ -643,7 +645,7 @@ final class AppleSpeechInputSeamTests: XCTestCase {
             try? await Task.sleep(for: .milliseconds(1))
         }
         XCTAssertNil(deallocatedInput)
-        XCTAssertEqual(center.removeCount, 5)
+        XCTAssertEqual(center.removeCount, 0)
     }
 
     private func makeInput(

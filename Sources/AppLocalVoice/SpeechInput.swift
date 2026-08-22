@@ -7,25 +7,24 @@ protocol SpeechInput: Sendable {
     /// free; installation occurs only through `prepareRecognition`.
     func modelInstallationAvailable(for locale: Locale) async -> Bool
     /// Reads the current recognition authorization without prompting.
-    func authorizationStatus() async -> SpeechAuthorization
+    func authorizationStatus() async -> VoicePermissionStatus
     /// Reads the current microphone authorization without prompting.
     func microphonePermissionStatus() async -> VoicePermissionStatus
-    func requestAuthorization() async -> SpeechAuthorization
+    func requestAuthorization() async -> VoicePermissionStatus
     func requestMicrophonePermission() async -> Bool
-    /// Performs explicit permission/model preparation without opening capture.
-    func prepareRecognition(for locale: Locale, policy: SpeechModelPolicy) async throws -> Bool
-    /// Performs explicit preparation with optional content-free progress.
+    /// Performs explicit permission/model preparation without opening capture,
+    /// reporting optional content-free progress.
     func prepareRecognition(
         for locale: Locale,
         policy: SpeechModelPolicy,
         progress: RecognitionPreparationProgressHandler?
     ) async throws -> Bool
-    func start(configuration: RecognitionConfiguration) async throws -> AsyncThrowingStream<TranscriptUpdate, Error>
-    /// Starts recognition with the session's lifecycle policy. Providers that
-    /// have not opted into this additive seam reject non-default policies
-    /// rather than silently running with behavior they cannot provide.
+    /// Starts recognition from the selected input with the session's lifecycle
+    /// policy. The provider owns decoding and analyzer feeding only; the
+    /// coordinator retains session semantics.
     func start(
         configuration: RecognitionConfiguration,
+        input: RecognitionInput,
         lifecyclePolicy: AudioLifecyclePolicy
     ) async throws -> AsyncThrowingStream<TranscriptUpdate, Error>
     func stop() async throws -> String
@@ -38,11 +37,18 @@ protocol SpeechInput: Sendable {
 extension SpeechInput {
     func modelInstallationAvailable(for locale: Locale) async -> Bool { false }
 
-    func authorizationStatus() async -> SpeechAuthorization { .authorized }
+    func authorizationStatus() async -> VoicePermissionStatus { .authorized }
 
     func microphonePermissionStatus() async -> VoicePermissionStatus { .authorized }
 
-    func prepareRecognition(for locale: Locale, policy: SpeechModelPolicy) async throws -> Bool {
+    /// Default preparation for providers without a model-installation path:
+    /// check permissions and locale support, install nothing.
+    func prepareRecognition(
+        for locale: Locale,
+        policy: SpeechModelPolicy,
+        progress: RecognitionPreparationProgressHandler?
+    ) async throws -> Bool {
+        await progress?(.checkingReadiness)
         guard await requestMicrophonePermission() else {
             throw VoiceError.microphonePermissionDenied
         }
@@ -58,27 +64,14 @@ extension SpeechInput {
         return false
     }
 
-    func prepareRecognition(
-        for locale: Locale,
-        policy: SpeechModelPolicy,
-        progress: RecognitionPreparationProgressHandler?
-    ) async throws -> Bool {
-        await progress?(.checkingReadiness)
-        let installed = try await prepareRecognition(for: locale, policy: policy)
-        if installed { await progress?(.modelInstalled) }
-        return installed
+    /// Convenience without progress reporting.
+    func prepareRecognition(for locale: Locale, policy: SpeechModelPolicy) async throws -> Bool {
+        try await prepareRecognition(for: locale, policy: policy, progress: nil)
     }
 
-    func start(
-        configuration: RecognitionConfiguration,
-        lifecyclePolicy: AudioLifecyclePolicy
-    ) async throws -> AsyncThrowingStream<TranscriptUpdate, Error> {
-        guard lifecyclePolicy == .init() else {
-            throw VoiceError.invalidRecognitionConfiguration(
-                "This speech input provider does not support a non-default audio lifecycle policy."
-            )
-        }
-        return try await start(configuration: configuration)
+    /// Convenience for microphone capture with the default lifecycle policy.
+    func start(configuration: RecognitionConfiguration) async throws -> AsyncThrowingStream<TranscriptUpdate, Error> {
+        try await start(configuration: configuration, input: .microphone, lifecyclePolicy: .init())
     }
 
     func resourcesAreReleased() async -> Bool { true }

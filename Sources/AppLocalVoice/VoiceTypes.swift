@@ -124,13 +124,6 @@ struct SpeechCapabilities: Sendable, Equatable {
     }
 }
 
-enum SpeechAuthorization: Sendable, Equatable {
-    case notDetermined
-    case denied
-    case restricted
-    case authorized
-}
-
 /// A complete provider transcript snapshot emitted during recognition.
 struct TranscriptUpdate: Sendable, Equatable {
     /// Full current transcript text, never a delta.
@@ -152,7 +145,8 @@ public enum VoiceState: Sendable, Equatable {
     /// A recognition turn owns the lifecycle and is waiting on permission,
     /// model readiness, audio-session activation, or engine startup.
     case preparing
-    /// Microphone capture and live recognition are active.
+    /// Recognition input is active. It may be microphone capture or a
+    /// completed local audio file being analyzed.
     case listening
     /// Capture has ended and the analyzer is producing its final result.
     case finalizing
@@ -187,24 +181,6 @@ public enum VoiceTerminationReason: Sendable, Equatable {
 /// without exposing notification text through the public error surface.
 struct VoiceLifecycleInterruption: Error, Sendable, Equatable {
     let reason: VoiceInterruptionReason
-}
-
-/// Internal event stream emitted by the serialized voice service.
-enum VoiceEvent: Sendable, Equatable {
-    /// The public lifecycle state changed.
-    case stateChanged(VoiceState)
-    /// A complete partial or final transcript snapshot.
-    case transcript(TranscriptUpdate)
-    /// Recognition reached its exactly-once terminal reason.
-    case listeningFinished(VoiceTerminationReason)
-    /// Synthesis began playback.
-    case speechStarted
-    /// Synthesis completed playback.
-    case speechFinished
-    /// Synthesis was cancelled before completion.
-    case speechCancelled
-    /// A recoverable operation failure occurred.
-    case failure(VoiceError)
 }
 
 /// Typed errors produced by recognition, synthesis, permissions, and lifecycle policy.
@@ -622,3 +598,13 @@ public typealias VoiceDiagnosticsSink = @MainActor (VoiceDiagnostic) -> Void
 /// route identifier, or credential-like value. A slow consumer may lose older
 /// records; it must use the lifecycle/event APIs for authoritative recovery.
 public typealias VoiceDiagnosticsStream = AsyncStream<VoiceDiagnostic>
+
+/// Monotonic elapsed-time source for content-free diagnostics durations.
+enum MonotonicClock {
+    static var nanoseconds: UInt64 { DispatchTime.now().uptimeNanoseconds }
+
+    static func elapsed(since start: UInt64) -> UInt64 {
+        let now = nanoseconds
+        return now >= start ? now - start : 0
+    }
+}

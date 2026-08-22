@@ -29,7 +29,7 @@ final class RecoveryLifecycleAuditTests: XCTestCase {
             let voice = AppLocalVoice(input: input, output: output)
 
             do {
-                try await voice.startListening(configuration: .init(policy: .allowModelInstallation))
+                try await voice.startTurn(configuration: .init(policy: .allowModelInstallation))
                 XCTFail("expected injected \(stage) failure")
             } catch {
                 // The exact public error can vary by provider boundary; the
@@ -42,8 +42,8 @@ final class RecoveryLifecycleAuditTests: XCTestCase {
             XCTAssertEqual(failedState, .idle, "\(stage) left the facade active")
             XCTAssertTrue(failedBalanced, "\(stage) leaked a resource")
 
-            try await voice.startListening()
-            await voice.cancelListening()
+            try await voice.startTurn()
+            await voice.cancelTurn()
             let recoveredState = await voice.state
             let recoveredBalanced = await ledger.isBalanced()
             XCTAssertEqual(recoveredState, .idle, "\(stage) could not recover")
@@ -74,7 +74,7 @@ final class RecoveryLifecycleAuditTests: XCTestCase {
             }
 
             do {
-                try await coordinator.startListening()
+                try await coordinator.startTurn()
                 XCTFail("expected injected \(stage) failure")
             } catch {
                 XCTAssertEqual(error as? VoiceError, expectedFailure)
@@ -96,9 +96,9 @@ final class RecoveryLifecycleAuditTests: XCTestCase {
         let expectedFailure = HarnessFailure(stage: .finalization, message: "finalization failed")
         await input.setFailure(expectedFailure)
 
-        try await voice.startListening()
+        try await voice.startTurn()
         do {
-            _ = try await voice.finishListening()
+            _ = try await voice.finishTurn()
             XCTFail("expected finalization failure")
         } catch {
             XCTAssertEqual(error as? HarnessFailure, expectedFailure)
@@ -113,8 +113,8 @@ final class RecoveryLifecycleAuditTests: XCTestCase {
         XCTAssertEqual(firstCounts.released, 1)
 
         await input.setFailure(nil)
-        try await voice.startListening()
-        await voice.cancelListening()
+        try await voice.startTurn()
+        await voice.cancelTurn()
         await voice.close()
 
         let finalCounts = await ledger.count(.microphone)
@@ -130,17 +130,14 @@ final class RecoveryLifecycleAuditTests: XCTestCase {
             let input = ControlledSpeechInput(ledger: ledger)
             let output = ControlledSpeechOutput(ledger: ledger)
             let coordinator = VoiceCoordinator(input: input, output: output)
-            let stream = await coordinator.events()
-            let eventsTask = Task { await collectUntilListeningFinished(stream) }
+            let stream = await coordinator.voiceEvents()
+            let eventsTask = Task { try await collectRecognitionKinds(stream) }
 
-            try await coordinator.startListening()
+            try await coordinator.startTurn()
             await input.failStream(VoiceError.interrupted(stage.description))
 
-            let events = await eventsTask.value
-            let terminalEvents = events.filter {
-                if case .listeningFinished = $0 { return true }
-                return false
-            }
+            let kinds = try await withBoundedTimeout { try await eventsTask.value }
+            let terminalEvents = kinds.filter { $0.outcome != nil }
             let cancelCount = await input.cancels
             let failedBalanced = await ledger.isBalanced()
             let failedState = await coordinator.state
@@ -151,8 +148,8 @@ final class RecoveryLifecycleAuditTests: XCTestCase {
 
             // A terminal interruption must invalidate only that generation;
             // the next turn must still be usable.
-            try await coordinator.startListening()
-            await coordinator.cancelListening()
+            try await coordinator.startTurn()
+            await coordinator.cancelTurn()
             let recoveryBalanced = await ledger.isBalanced()
             XCTAssertTrue(recoveryBalanced, "recovery leaked for \(stage)")
         }
@@ -167,7 +164,7 @@ final class RecoveryLifecycleAuditTests: XCTestCase {
         await output.setFailure(expectedFailure)
 
         do {
-            try await coordinator.speak("first")
+            try await coordinator.speakNow("first")
             XCTFail("expected synthesis failure")
         } catch {
             XCTAssertEqual(error as? HarnessFailure, expectedFailure)
@@ -180,7 +177,7 @@ final class RecoveryLifecycleAuditTests: XCTestCase {
         XCTAssertTrue(failedBalanced)
 
         await output.setFailure(nil)
-        let speech = Task { try await coordinator.speak("second") }
+        let speech = Task { try await coordinator.speakNow("second") }
         await output.waitUntilStarted()
         await coordinator.stopSpeaking()
         _ = try? await speech.value
@@ -200,7 +197,7 @@ final class RecoveryLifecycleAuditTests: XCTestCase {
         do {
             var voice: AppLocalVoice? = AppLocalVoice(input: input, output: output)
             weakVoice = voice
-            try await voice?.startListening()
+            _ = try await voice?.startTurn()
             await voice?.close()
             await voice?.close()
             voice = nil
@@ -216,7 +213,7 @@ final class RecoveryLifecycleAuditTests: XCTestCase {
         XCTAssertTrue(balanced)
 
         let speechVoice = AppLocalVoice(input: input, output: output)
-        let speech = Task { try? await speechVoice.speak("pending") }
+        let speech = Task { try? await speechVoice.speakNow("pending") }
         await output.waitUntilStarted()
         let stopsBeforeSpeechClose = await output.stops
         await speechVoice.close()
@@ -227,13 +224,4 @@ final class RecoveryLifecycleAuditTests: XCTestCase {
         XCTAssertEqual(stopCount, stopsBeforeSpeechClose + 1, "close must stop an active output operation once")
         XCTAssertTrue(speechBalanced)
     }
-}
-
-private func collectUntilListeningFinished(_ stream: AsyncStream<VoiceEvent>) async -> [VoiceEvent] {
-    var events: [VoiceEvent] = []
-    for await event in stream {
-        events.append(event)
-        if case .listeningFinished = event { break }
-    }
-    return events
 }

@@ -42,9 +42,10 @@ final class RuntimeFacadeGateTests: XCTestCase {
             stableTranscriptClock: clock
         )
         let recorder = RecognitionEventRecorder()
-        let stream = await voice.recognitionEvents()
+        let stream = await voice.voiceEvents()
         let observation = Task {
-            for try await event in stream {
+            for try await streamEvent in stream {
+                guard case .recognition(let event) = streamEvent else { continue }
                 await recorder.append(event)
                 if event.kind.isTerminal { return }
             }
@@ -126,9 +127,10 @@ final class RuntimeFacadeGateTests: XCTestCase {
             stableTranscriptClock: clock
         )
         let recorder = RecognitionEventRecorder()
-        let stream = await voice.recognitionEvents()
+        let stream = await voice.voiceEvents()
         let observation = Task {
-            for try await event in stream {
+            for try await streamEvent in stream {
+                guard case .recognition(let event) = streamEvent else { continue }
                 await recorder.append(event)
                 if event.kind.isTerminal { return }
             }
@@ -170,7 +172,7 @@ final class RuntimeFacadeGateTests: XCTestCase {
 
     func testAdvisorySlotsDoNotConsumeDurableCapacityAndOverflowReportsCursor() async throws {
         let registry = CanonicalEventSubscriberRegistry()
-        var delivery = RecognitionEventDelivery(subscriberRegistry: registry)
+        var delivery = CanonicalVoiceEventDelivery(registry: registry)
         let stream = delivery.subscribe { _ in }
         let sessionID = RecognitionSessionID()
 
@@ -209,7 +211,9 @@ final class RuntimeFacadeGateTests: XCTestCase {
 
         var received: [RecognitionEvent] = []
         do {
-            for try await event in stream { received.append(event) }
+            for try await event in stream {
+                if case .recognition(let recognition) = event { received.append(recognition) }
+            }
             XCTFail("Expected explicit durable delivery overflow")
         } catch let error as VoiceError {
             XCTAssertEqual(
@@ -237,9 +241,9 @@ final class RuntimeFacadeGateTests: XCTestCase {
 
     func testCanonicalSubscriberLimitIsProcessWideAndDoesNotEvictExistingStreams() async throws {
         let registry = CanonicalEventSubscriberRegistry()
-        var firstDelivery = RecognitionEventDelivery(subscriberRegistry: registry)
-        var secondDelivery = RecognitionEventDelivery(subscriberRegistry: registry)
-        var streams: [AsyncThrowingStream<RecognitionEvent, Error>] = []
+        var firstDelivery = CanonicalVoiceEventDelivery(registry: registry)
+        var secondDelivery = CanonicalVoiceEventDelivery(registry: registry)
+        var streams: [VoiceEventStream] = []
         for _ in 0..<4 { streams.append(firstDelivery.subscribe { _ in }) }
         for _ in 0..<4 { streams.append(secondDelivery.subscribe { _ in }) }
         XCTAssertEqual(registry.activeSubscriberCount, 8)
@@ -260,7 +264,7 @@ final class RuntimeFacadeGateTests: XCTestCase {
         for stream in streams {
             var iterator = stream.makeAsyncIterator()
             let received = try await iterator.next()
-            XCTAssertEqual(received, event)
+            XCTAssertEqual(received, .recognition(event))
         }
     }
 
@@ -403,7 +407,7 @@ final class RuntimeFacadeGateTests: XCTestCase {
             output: ControlledSpeechOutput(),
             runtimeLease: runtimeLease
         )
-        let secondStream = await second.recognitionEvents()
+        let secondStream = await second.voiceEvents()
 
         let firstAcceptance = try await first.startSession()
         await waitForGateFacadeState(.listening, voice: first)
@@ -427,7 +431,7 @@ final class RuntimeFacadeGateTests: XCTestCase {
         XCTAssertEqual(firstClosed, .released)
         let secondAcceptance = try await second.startSession()
         var iterator = secondStream.makeAsyncIterator()
-        let firstSecondFacadeEvent = try await iterator.next()
+        let firstSecondFacadeEvent = try await nextRecognitionEvent(&iterator)
         XCTAssertEqual(firstSecondFacadeEvent?.kind, .accepted)
         XCTAssertEqual(firstSecondFacadeEvent?.sessionID, secondAcceptance.sessionID)
         await waitForGateFacadeState(.listening, voice: second)
@@ -524,7 +528,7 @@ final class RuntimeFacadeGateTests: XCTestCase {
         let output = AdmissionBlockingSpeechOutput()
         let input = ControlledSpeechInput()
         let voice = AppLocalVoice(input: input, output: output)
-        let stream = await voice.recognitionEvents()
+        let stream = await voice.voiceEvents()
 
         let cancelledStart = Task { @MainActor in
             try await voice.startSession()
@@ -544,7 +548,7 @@ final class RuntimeFacadeGateTests: XCTestCase {
 
         let acceptance = try await voice.startSession()
         var iterator = stream.makeAsyncIterator()
-        let firstEvent = try await iterator.next()
+        let firstEvent = try await nextRecognitionEvent(&iterator)
         XCTAssertEqual(firstEvent?.kind, .accepted)
         XCTAssertEqual(firstEvent?.sessionID, acceptance.sessionID)
         await waitForGateFacadeState(.listening, voice: voice)
@@ -569,6 +573,19 @@ private actor RecognitionEventRecorder {
     func contains(_ predicate: @Sendable (RecognitionEvent) -> Bool) -> Bool {
         events.contains(where: predicate)
     }
+}
+
+/// Returns the next recognition event on a canonical stream, skipping the
+/// initial snapshot and any non-recognition events. This mirrors the
+/// recognition-only view: the first recognition event must be the identity
+/// (`.accepted`) of the admitted session.
+private func nextRecognitionEvent(
+    _ iterator: inout VoiceEventStream.AsyncIterator
+) async throws -> RecognitionEvent? {
+    while let streamEvent = try await iterator.next() {
+        if case .recognition(let event) = streamEvent { return event }
+    }
+    return nil
 }
 
 private func waitForRecordedEvent(
@@ -690,7 +707,7 @@ private actor AdmissionBlockingSpeechOutput: SpeechOutput {
     private var releaseContinuation: CheckedContinuation<Void, Never>?
 
     func availableVoices(for locale: Locale) async -> [SpeechVoice] { [] }
-    func speak(_ text: String, configuration: SpeechConfiguration) async throws {}
+    func speak(_ text: String, configuration: SpeechConfiguration, lifecyclePolicy: AudioLifecyclePolicy) async throws {}
     func pause() async {}
     func resume() async {}
     func stop() async {}
@@ -732,7 +749,7 @@ private actor RecoveryBlockingSpeechOutput: SpeechOutput {
 
     func availableVoices(for locale: Locale) async -> [SpeechVoice] { [] }
 
-    func speak(_ text: String, configuration: SpeechConfiguration) async throws {
+    func speak(_ text: String, configuration: SpeechConfiguration, lifecyclePolicy: AudioLifecyclePolicy) async throws {
         released = false
     }
 
@@ -787,5 +804,12 @@ private actor RecoveryBlockingSpeechOutput: SpeechOutput {
             releaseContinuation?.resume()
             releaseContinuation = nil
         }
+    }
+}
+
+private extension CanonicalVoiceEventDelivery {
+    /// Publishes a recognition event on the canonical stream.
+    mutating func publish(_ event: RecognitionEvent) {
+        publish(.recognition(event))
     }
 }

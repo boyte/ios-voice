@@ -14,7 +14,7 @@ final class DeterministicRaceCancellationStressTests: XCTestCase {
             let input = ControlledSpeechInput(ledger: ledger)
             let output = ControlledSpeechOutput(ledger: ledger)
             let coordinator = VoiceCoordinator(input: input, output: output)
-            let events = await coordinator.events()
+            let stream = await coordinator.voiceEvents()
 
             let outcomes = try await withBoundedTimeout(.seconds(2)) {
                 var random = DeterministicRandom(seed: seed &+ UInt64(round))
@@ -64,18 +64,30 @@ final class DeterministicRaceCancellationStressTests: XCTestCase {
                 if case .startSucceeded = $0 { return true }
                 return false
             }
-            if startsSucceeded {
-                let observed = try await withBoundedTimeout(.seconds(1)) {
-                    await collectVoiceEventsThroughIdle(events)
-                }
-                let listeningTerminals = observed.filter {
-                    if case .listeningFinished = $0 { return true }
-                    return false
-                }
-                XCTAssertEqual(listeningTerminals.count, 1, "listening terminal uniqueness for seed \(seed), round \(round)")
-                XCTAssertEqual(observed.filter { $0 == .stateChanged(.idle) }.count, 1,
-                               "idle transition uniqueness for seed \(seed), round \(round)")
+            // Every session admitted during the round must reach exactly one
+            // canonical `.outcome`. The final close above has already joined
+            // all owned cleanup, so a probe session started afterwards bounds
+            // the observation window: canonical delivery is ordered per
+            // subscriber, so every round event precedes the probe's events.
+            let observed = try await withBoundedTimeout(.seconds(1)) {
+                try await collectRecognitionEventsThroughProbe(coordinator, stream: stream)
             }
+            let acceptedSessions = observed.filter(\.kind.isAccepted).map(\.sessionID)
+            XCTAssertEqual(Set(acceptedSessions).count, acceptedSessions.count,
+                           "accepted uniqueness for seed \(seed), round \(round)")
+            if startsSucceeded {
+                XCTAssertFalse(acceptedSessions.isEmpty,
+                               "a successful start must admit a session for seed \(seed), round \(round)")
+            }
+            for sessionID in acceptedSessions {
+                let terminals = observed.filter { $0.sessionID == sessionID && $0.kind.isTerminal }
+                XCTAssertEqual(terminals.count, 1,
+                               "recognition terminal uniqueness for seed \(seed), round \(round)")
+            }
+            XCTAssertTrue(
+                observed.allSatisfy { acceptedSessions.contains($0.sessionID) },
+                "every recognition event belongs to an accepted session for seed \(seed), round \(round)"
+            )
         }
     }
 
@@ -87,16 +99,18 @@ final class DeterministicRaceCancellationStressTests: XCTestCase {
             let ledger = ResourceLedger()
             let output = ControlledSpeechOutput(ledger: ledger)
             let coordinator = VoiceCoordinator(input: ControlledSpeechInput(ledger: ledger), output: output)
-            let events = await coordinator.events()
-            let speech = Task { try await coordinator.speak("race-\(seed)-\(round)") }
+            let acceptance = try await coordinator.speakImmediately("race-\(seed)-\(round)")
+            let speech = Task { try await coordinator.awaitPlayback(acceptance.playbackID) }
             await output.waitUntilStarted()
 
+            // Hosts have no pause/resume for immediate playback; the queue
+            // controls are the canonical concurrent control callers here.
             try await withBoundedTimeout {
                 await withTaskGroup(of: Void.self) { group in
                     group.addTask { await coordinator.stopSpeaking() }
                     group.addTask { await coordinator.close() }
-                    group.addTask { await coordinator.pauseSpeaking() }
-                    group.addTask { await coordinator.resumeSpeaking() }
+                    group.addTask { _ = await coordinator.pauseSpeechQueue() }
+                    group.addTask { _ = await coordinator.resumeSpeechQueue() }
                 }
             }
             do {
@@ -111,16 +125,13 @@ final class DeterministicRaceCancellationStressTests: XCTestCase {
             let balanced = await ledger.isBalanced()
             XCTAssertEqual(state, .idle, "round \(round)")
             XCTAssertTrue(balanced, "round \(round)")
-            let observed = try await withBoundedTimeout(.seconds(1)) {
-                await collectVoiceEventsThroughIdle(events)
+            // The playback result is the exactly-once terminal truth for the
+            // accepted playback ID: one cancelled outcome, never a failure.
+            let result = try await withBoundedTimeout(.seconds(1)) {
+                try await coordinator.waitForSpeechPlayback(acceptance.playbackID)
             }
-            let speechTerminals = observed.filter {
-                switch $0 {
-                case .speechFinished, .speechCancelled, .failure: return true
-                default: return false
-                }
-            }
-            XCTAssertEqual(speechTerminals, [.speechCancelled], "speech terminal uniqueness in round \(round)")
+            XCTAssertEqual(result.playbackID, acceptance.playbackID, "round \(round)")
+            XCTAssertEqual(result.outcome, .cancelled(.stopped), "speech terminal uniqueness in round \(round)")
             let stopCount = await output.stops
             XCTAssertEqual(stopCount, 1, "provider stop uniqueness in round \(round)")
         }
@@ -128,7 +139,7 @@ final class DeterministicRaceCancellationStressTests: XCTestCase {
 
     private static func startResult(_ coordinator: VoiceCoordinator) async -> RaceCallerResult {
         do {
-            try await coordinator.startListening()
+            try await coordinator.startTurn()
             return .startSucceeded
         } catch let error as VoiceError {
             return .startFailed(error)
@@ -139,7 +150,7 @@ final class DeterministicRaceCancellationStressTests: XCTestCase {
 
     private static func endResult(_ coordinator: VoiceCoordinator) async -> RaceCallerResult {
         do {
-            _ = try await coordinator.endListening()
+            _ = try await coordinator.finishTurn()
             return .endSucceeded
         } catch let error as VoiceError {
             return .endFailed(error)
@@ -149,13 +160,33 @@ final class DeterministicRaceCancellationStressTests: XCTestCase {
     }
 
     private static func cancelResult(_ coordinator: VoiceCoordinator) async -> RaceCallerResult {
-        await coordinator.cancelListening()
+        await coordinator.cancelTurn()
         return .completed
     }
 
     private static func closeResult(_ coordinator: VoiceCoordinator) async -> RaceCallerResult {
         await coordinator.close()
         return .completed
+    }
+}
+
+/// Starts a probe session on the already-closed coordinator, cancels it, and
+/// drains the stream through the probe's terminal outcome. Recognition events
+/// belonging to the probe are excluded from the returned list.
+private func collectRecognitionEventsThroughProbe(
+    _ coordinator: VoiceCoordinator,
+    stream: VoiceEventStream
+) async throws -> [RecognitionEvent] {
+    let probeID = try await coordinator.startTurn()
+    await coordinator.cancelSession(id: probeID)
+    let events = try await collectEvents(stream) { event in
+        guard case .recognition(let recognition) = event else { return false }
+        return recognition.sessionID == probeID && recognition.kind.isTerminal
+    }
+    return events.compactMap { event -> RecognitionEvent? in
+        guard case .recognition(let recognition) = event,
+              recognition.sessionID != probeID else { return nil }
+        return recognition
     }
 }
 

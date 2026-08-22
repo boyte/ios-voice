@@ -167,14 +167,6 @@ final class AppleSpeechOutput: NSObject, SpeechOutput {
         registerObservers()
     }
 
-    func speak(_ text: String, configuration: SpeechConfiguration = .init()) async throws {
-        try await speak(
-            text,
-            configuration: configuration,
-            lifecyclePolicy: .init()
-        )
-    }
-
     func speak(
         _ text: String,
         configuration: SpeechConfiguration = .init(),
@@ -693,10 +685,7 @@ final class AppleSpeechOutput: NSObject, SpeechOutput {
     }
 
     private static func isPersonalVoice(_ voice: AVSpeechSynthesisVoice) -> Bool {
-        if #available(iOS 17.0, *) {
-            return voice.voiceTraits.contains(.isPersonalVoice)
-        }
-        return false
+        voice.voiceTraits.contains(.isPersonalVoice)
     }
 
     private static func localeMatch(_ voiceIdentifier: String, locale: Locale) -> Bool {

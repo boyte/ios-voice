@@ -17,8 +17,6 @@ struct RecognitionSessionDiagnosticEmission: Sendable, Equatable {
 /// callbacks, cleanup completions, and control completions must still own that
 /// identity before they can publish an event or mutate state.
 actor VoiceCoordinator {
-    private static let eventBufferCapacity = 8
-    static let maximumEventSubscribers = 8
     private static let defaultCleanupTimeout: Duration = .seconds(2)
 
     private struct OperationToken: Hashable, Sendable {
@@ -83,11 +81,12 @@ actor VoiceCoordinator {
     private var runtimeSnapshotGeneration: UInt64 = 0
     private var ownsRuntimeLease = false
     private var preAdmissionInFlight = false
+    /// The requested operation is retained only while pre-admission awaits
+    /// resource truth. It lets a host stop a direct speech request before a
+    /// token exists without letting that control cancel recognition setup.
+    private var preAdmissionOperation: OperationKind?
     private var recognitionPreparationInFlight = false
 
-    private var eventContinuations: [UUID: AsyncStream<VoiceEvent>.Continuation] = [:]
-    private var eventContinuationOrder: [UUID] = []
-    private var recognitionEventDelivery: RecognitionEventDelivery
     private var canonicalEventDelivery: CanonicalVoiceEventDelivery
     private let speechQueue: SpeechQueueEngine
     private var speechQueueTask: Task<Void, Never>?
@@ -149,9 +148,7 @@ actor VoiceCoordinator {
 
     private var speakingStopTask: Task<Void, Never>?
     private var speakingStopToken: OperationToken?
-    private var speakingTerminalEmitted = false
     private var admissionEpoch: UInt64 = 0
-    private var unresolvedOutputFailureEmitted = false
 
     private var closeInFlight = false
     private var closeWaiters: [CheckedContinuation<Bool, Never>] = []
@@ -173,9 +170,6 @@ actor VoiceCoordinator {
         self.cleanupTimeout = cleanupTimeout
         self.runtimeLease = runtimeLease
         speechQueue = SpeechQueueEngine(configuration: queueConfiguration)
-        recognitionEventDelivery = RecognitionEventDelivery(
-            subscriberRegistry: eventSubscriberRegistry
-        )
         canonicalEventDelivery = CanonicalVoiceEventDelivery(
             registry: eventSubscriberRegistry
         )
@@ -188,34 +182,6 @@ actor VoiceCoordinator {
         // an otherwise reusable process lease stranded after its owner dies.
         if ownsRuntimeLease, operation == nil {
             runtimeLease.release(for: runtimeOwnerID)
-        }
-    }
-
-    /// Returns a bounded newest-value stream. Intermediate snapshots may be
-    /// discarded for a stalled consumer; lifecycle terminal events are emitted
-    /// only by the operation that still owns the stream. The oldest active
-    /// subscription is finished when the subscriber ceiling is reached.
-    func events() -> AsyncStream<VoiceEvent> {
-        let id = UUID()
-        return AsyncStream(bufferingPolicy: .bufferingNewest(Self.eventBufferCapacity)) { continuation in
-            if eventContinuations.count >= Self.maximumEventSubscribers,
-               let oldest = eventContinuationOrder.first {
-                eventContinuationOrder.removeFirst()
-                eventContinuations.removeValue(forKey: oldest)?.finish()
-            }
-            eventContinuations[id] = continuation
-            eventContinuationOrder.append(id)
-            continuation.onTermination = { [weak self] _ in
-                Task { await self?.removeEventContinuation(id) }
-            }
-        }
-    }
-
-    /// Additive, typed recognition-only stream. Events are ordered per session
-    /// and durable-buffer overflow terminates only the affected subscriber.
-    func recognitionEvents() -> AsyncThrowingStream<RecognitionEvent, Error> {
-        recognitionEventDelivery.subscribe { [weak self] id in
-            Task { await self?.removeRecognitionEventContinuation(id) }
         }
     }
 
@@ -311,9 +277,7 @@ actor VoiceCoordinator {
             acceptedEventOrdinal: ordinal
         )
         knownSpeechPlaybackIDs.insert(playbackID)
-        speakingTerminalEmitted = false
         transition(to: .speaking, token: token)
-        emit(.speechStarted, token: token)
         Task { [weak self] in
             await self?.runImmediatePlayback(
                 text: normalized,
@@ -462,7 +426,7 @@ actor VoiceCoordinator {
             voices
         )
         let microphoneStatus: VoicePermissionStatus = microphone
-        let speechStatus = Self.permissionStatus(from: speech)
+        let speechStatus = speech
         let recognitionAvailability: VoiceCapabilityAvailability
         let readiness: RecognitionModelReadiness
         if !recognitionCapabilities.isSupported {
@@ -558,51 +522,6 @@ actor VoiceCoordinator {
         }
     }
 
-    /// Admission epoch used to bind facade preflight work to the close
-    /// boundary. This is an internal coordinator contract.
-    func currentAdmissionEpoch() -> UInt64 { admissionEpoch }
-
-    /// Whether a new public operation can reserve the coordinator now.
-    ///
-    /// This is intentionally separate from `state`: startup and cleanup may
-    /// temporarily report `.idle` for source compatibility while still
-    /// owning an operation reservation.
-    func isAvailableForNewOperation() async -> Bool {
-        await preAdmissionErrorForNewOperation() == nil
-    }
-
-    /// Read-only facade preflight used before diagnostics claim a speech
-    /// request. Authoritative admission is still repeated atomically by
-    /// `reserveAfterResourceAdmission`.
-    func preAdmissionErrorForNewOperation() async -> VoiceError? {
-        guard canReserveOperation, !preAdmissionInFlight else {
-            return .invalidState("A voice operation is already active.")
-        }
-        guard ownsRuntimeLease || runtimeLease.canAcquire(for: runtimeOwnerID) else {
-            return .serviceInUse
-        }
-        let outputReleased = await output.resourcesAreReleased()
-        if Task.isCancelled { return .cancelled }
-        guard outputReleased else {
-            markUnresolvedOutputFailure()
-            return Self.speechResourceFailure
-        }
-        return nil
-    }
-
-    func startListening(configuration: RecognitionConfiguration = .init()) async throws {
-        let sessionConfiguration = RecognitionSessionConfiguration(
-            recognition: configuration,
-            publicationPolicy: .previewAndFinal
-        )
-        let (token, _) = try await admitRecognitionSession(configuration: sessionConfiguration)
-        try await runRecognitionStartup(
-            configuration: sessionConfiguration.recognition,
-            lifecyclePolicy: sessionConfiguration.lifecyclePolicy,
-            token: token
-        )
-    }
-
     func startSession(
         configuration: RecognitionSessionConfiguration,
         diagnosticContinuation: AsyncStream<RecognitionSessionDiagnosticEmission>.Continuation? = nil
@@ -615,6 +534,7 @@ actor VoiceCoordinator {
             do {
                 try await self?.runRecognitionStartup(
                     configuration: configuration.recognition,
+                    input: configuration.input,
                     lifecyclePolicy: configuration.lifecyclePolicy,
                     token: token
                 )
@@ -631,6 +551,7 @@ actor VoiceCoordinator {
         diagnosticContinuation: AsyncStream<RecognitionSessionDiagnosticEmission>.Continuation? = nil
     ) async throws -> (OperationToken, RecognitionSessionAcceptance) {
         try Self.validateRecognitionDuration(configuration.maximumRecognitionDuration)
+        try Self.validateRecognitionInput(configuration.input)
         try await giveRecognitionPriorityOverSpeechIfNeeded()
         let token = try await reserveAfterResourceAdmission(.listening)
         let sessionID = RecognitionSessionID()
@@ -659,7 +580,7 @@ actor VoiceCoordinator {
             maximumRecognitionDuration: configuration.maximumRecognitionDuration,
             diagnostic: diagnosticContinuation.map {
                 RecognitionSessionDiagnosticRecord(
-                    startedAtNanoseconds: Self.monotonicNanoseconds,
+                    startedAtNanoseconds: MonotonicClock.nanoseconds,
                     continuation: $0
                 )
             },
@@ -713,6 +634,7 @@ actor VoiceCoordinator {
 
     private func runRecognitionStartup(
         configuration: RecognitionConfiguration,
+        input: RecognitionInput,
         lifecyclePolicy: AudioLifecyclePolicy,
         token: OperationToken
     ) async throws {
@@ -722,6 +644,7 @@ actor VoiceCoordinator {
             guard let self else { throw VoiceError.cancelled }
             try await self.startListeningProvider(
                 configuration: configuration,
+                input: input,
                 lifecyclePolicy: lifecyclePolicy,
                 token: token
             )
@@ -869,27 +792,31 @@ actor VoiceCoordinator {
 
     private func startListeningProvider(
         configuration: RecognitionConfiguration,
+        input: RecognitionInput,
         lifecyclePolicy: AudioLifecyclePolicy,
         token: OperationToken
     ) async throws {
         guard isCurrent(token) else { throw VoiceError.cancelled }
-        guard await input.requestMicrophonePermission() else {
-            throw VoiceError.microphonePermissionDenied
+        if input == .microphone {
+            guard await self.input.requestMicrophonePermission() else {
+                throw VoiceError.microphonePermissionDenied
+            }
         }
         try Task.checkCancellation()
-        guard await input.requestAuthorization() == .authorized else {
+        guard await self.input.requestAuthorization() == .authorized else {
             throw VoiceError.speechPermissionDenied
         }
         try Task.checkCancellation()
 
-        let capabilities = await input.capabilities(for: configuration.locale)
+        let capabilities = await self.input.capabilities(for: configuration.locale)
         try Task.checkCancellation()
         guard capabilities.isSupported else {
             throw VoiceError.unsupportedLocale(configuration.locale)
         }
 
-        let stream = try await input.start(
+        let stream = try await self.input.start(
             configuration: configuration,
+            input: input,
             lifecyclePolicy: lifecyclePolicy
         )
         try Task.checkCancellation()
@@ -899,7 +826,7 @@ actor VoiceCoordinator {
         // readiness snapshot after start so a model installed during startup
         // cannot be rejected using a stale preflight result.
         if configuration.policy == .installedModelsOnly {
-            let readiness = await input.capabilities(for: configuration.locale)
+            let readiness = await self.input.capabilities(for: configuration.locale)
             try Task.checkCancellation()
             guard readiness.supportsOnDevice else {
                 throw VoiceError.onDeviceRecognitionUnavailable(configuration.locale)
@@ -908,7 +835,9 @@ actor VoiceCoordinator {
         guard isCurrent(token) else { throw VoiceError.cancelled }
 
         transition(to: .listening, token: token)
-        scheduleRecognitionDurationLimit(token: token)
+        if input == .microphone {
+            scheduleRecognitionDurationLimit(token: token)
+        }
         transcriptTask?.cancel()
         transcriptTask = Task { [weak self] in
             do {
@@ -1168,81 +1097,8 @@ actor VoiceCoordinator {
         }
         if state == .failed {
             transition(to: .idle, allowInvalidated: true)
-            unresolvedOutputFailureEmitted = false
         }
         return true
-    }
-
-    func speak(
-        _ text: String,
-        configuration: SpeechConfiguration = .init(),
-        admissionEpoch expectedAdmissionEpoch: UInt64? = nil
-    ) async throws {
-        let normalized = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !normalized.isEmpty else { return }
-        try Task.checkCancellation()
-        guard expectedAdmissionEpoch == nil || expectedAdmissionEpoch == admissionEpoch else {
-            throw VoiceError.cancelled
-        }
-        guard canReserveOperation, !preAdmissionInFlight else {
-            throw VoiceError.invalidState("A voice operation is already active.")
-        }
-        // Direct speech deliberately bypasses the ordered queue. This keeps a
-        // suspended queue from blocking a host's immediate request and leaves
-        // pending queued attempts untouched.
-        let token = try await reserveAfterResourceAdmission(
-            .speaking(.immediate),
-            expectedAdmissionEpoch: expectedAdmissionEpoch
-        )
-        speakingTerminalEmitted = false
-        transition(to: .speaking, token: token)
-        emit(.speechStarted, token: token)
-
-        do {
-            try await withTaskCancellationHandler(operation: {
-                try await output.speak(
-                    normalized,
-                    configuration: configuration,
-                    lifecyclePolicy: defaultLifecyclePolicy
-                )
-                try Task.checkCancellation()
-                guard isCurrent(token) else { throw VoiceError.cancelled }
-                guard await output.resourcesAreReleased() else {
-                    throw Self.speechResourceFailure
-                }
-            }, onCancel: { [weak self] in
-                Task { await self?.cancelSpeaking(for: token) }
-            })
-            speakingTerminalEmitted = true
-            emit(.speechFinished, token: token)
-            transition(to: .idle, token: token, allowInvalidated: true)
-            clearSpeakingOperation(token)
-            startQueuedPlaybackIfNeeded()
-        } catch {
-            let normalizedError = normalize(error)
-            if normalizedError != .cancelled,
-               !isInterruption(normalizedError),
-               case .speaking = operation,
-               isOwned(token) {
-                speakingTerminalEmitted = true
-                emit(.failure(normalizedError), token: token, allowInvalidated: true)
-                transition(to: .failed, token: token, allowInvalidated: true)
-            }
-            if isOwned(token) {
-                _ = await stopSpeakingOperation(token)
-            }
-            // Preserve provider errors for the direct facade just as the
-            // queued playback-result path does. Cancellation remains a stable
-            // library error because it can be produced by task cancellation
-            // rather than the provider itself.
-            if error is VoiceLifecycleInterruption {
-                // Direct `speak` has no public playback-result identity on
-                // which to expose a reason. Never leak the provider-private
-                // typed signal across the facade boundary.
-                throw VoiceError.interrupted("Speech playback was interrupted.")
-            }
-            throw normalizedError == .cancelled ? VoiceError.cancelled : error
-        }
     }
 
     private func runImmediatePlayback(
@@ -1273,8 +1129,6 @@ actor VoiceCoordinator {
                 outcome: .finished
             )
             resolveSpeechPlayback(result)
-            speakingTerminalEmitted = true
-            emit(.speechFinished, token: token)
             transition(to: .idle, token: token, allowInvalidated: true)
             clearSpeakingOperation(token)
             startQueuedPlaybackIfNeeded()
@@ -1303,8 +1157,6 @@ actor VoiceCoordinator {
             }()
             resolveSpeechPlayback(result, error: terminalError)
             if normalized != .cancelled, !isInterruption(normalized), isOwned(token) {
-                speakingTerminalEmitted = true
-                emit(.failure(normalized), token: token, allowInvalidated: true)
                 transition(to: .failed, token: token, allowInvalidated: true)
             }
             if isOwned(token) { _ = await stopSpeakingOperation(token) }
@@ -1313,7 +1165,15 @@ actor VoiceCoordinator {
 
     @discardableResult
     func stopSpeaking() async -> Bool {
-        guard case .speaking(let token, _) = operation else { return true }
+        guard case .speaking(let token, _) = operation else {
+            guard preAdmissionInFlight,
+                  case .speaking(.immediate) = preAdmissionOperation else { return true }
+            // There is no operation token to cancel yet. Advancing the epoch
+            // makes the suspended admission fail its post-await ownership
+            // check before it can call the provider.
+            admissionEpoch &+= 1
+            return true
+        }
         return await stopSpeakingOperation(token)
     }
 
@@ -1336,45 +1196,19 @@ actor VoiceCoordinator {
 
         guard let task = speakingStopTask else { return false }
         guard let _ = await Self.boundedValue(task, timeout: cleanupTimeout) else {
-            let error = Self.speechCleanupFailure
-            if !speakingTerminalEmitted {
-                speakingTerminalEmitted = true
-                emit(.failure(error), token: token, allowInvalidated: true)
-            }
             transition(to: .failed, token: token, allowInvalidated: true)
             return false
         }
 
         guard await output.resourcesAreReleased() else {
-            let error = Self.speechResourceFailure
-            if !speakingTerminalEmitted {
-                speakingTerminalEmitted = true
-                emit(.failure(error), token: token, allowInvalidated: true)
-            }
             transition(to: .failed, token: token, allowInvalidated: true)
             return false
         }
         speakingStopTask = nil
         speakingStopToken = nil
-        if !speakingTerminalEmitted {
-            speakingTerminalEmitted = true
-            emit(.speechCancelled, token: token, allowInvalidated: true)
-        }
         transition(to: .idle, token: token, allowInvalidated: true)
         clearSpeakingOperation(token)
         return true
-    }
-
-    func pauseSpeaking() async {
-        guard case .speaking(let token, _) = operation, isCurrent(token) else { return }
-        await output.pause()
-        guard isCurrent(token) else { return }
-    }
-
-    func resumeSpeaking() async {
-        guard case .speaking(let token, _) = operation, isCurrent(token) else { return }
-        await output.resume()
-        guard isCurrent(token) else { return }
     }
 
     /// Performs every awaited pre-admission resource check before allocating
@@ -1399,6 +1233,11 @@ actor VoiceCoordinator {
         }
 
         preAdmissionInFlight = true
+        preAdmissionOperation = requested
+        defer {
+            preAdmissionInFlight = false
+            preAdmissionOperation = nil
+        }
         var acquisition: ProcessVoiceRuntimeLease.Acquisition?
         var retainNewLeaseForBlockedResources = false
 
@@ -1423,10 +1262,8 @@ actor VoiceCoordinator {
 
             try Task.checkCancellation()
             let token = try reserve(requested)
-            preAdmissionInFlight = false
             return token
         } catch {
-            preAdmissionInFlight = false
             if acquisition == .acquired, !retainNewLeaseForBlockedResources {
                 runtimeLease.release(for: runtimeOwnerID)
                 ownsRuntimeLease = false
@@ -1544,8 +1381,6 @@ actor VoiceCoordinator {
         guard let resourcesReleased = await Self.boundedValue(cleanupTask, timeout: cleanupTimeout) else {
             cleanupTimedOutTokens.insert(token)
             if !listeningTerminalEmitted {
-                emit(.failure(Self.cleanupTimeoutFailure), token: token, allowInvalidated: true)
-                emit(.listeningFinished(.failed(Self.cleanupTimeoutFailure)), token: token, allowInvalidated: true)
                 let outcome = RecognitionOutcome.failed(
                     Self.failure(from: Self.cleanupTimeoutFailure)
                 )
@@ -1611,11 +1446,6 @@ actor VoiceCoordinator {
             }
         }
         if !listeningTerminalEmitted {
-            if case .failed(let error) = finalReason,
-               (emitFailure || terminalError != nil || !resourcesReleased || !finalizationCompleted) {
-                emit(.failure(error), token: token, allowInvalidated: true)
-            }
-            emit(.listeningFinished(finalReason), token: token, allowInvalidated: true)
             let outcome = Self.recognitionOutcome(from: finalReason)
             emitRecognition(
                 .outcome(outcome),
@@ -1711,7 +1541,6 @@ actor VoiceCoordinator {
         emitRecognitionPreview(update.text, token: token)
         emitStableChunks(stableChunks, token: token)
         scheduleStableChunkTimer(token: token)
-        emit(.transcript(update), token: token)
     }
 
     private func emitTranscript(
@@ -1724,7 +1553,6 @@ actor VoiceCoordinator {
             return
         }
         if update.isFinal { lastFinalTranscript = update.text }
-        emit(.transcript(update), token: token, allowInvalidated: allowInvalidated)
     }
 
     private func finalizeListeningIfReady(_ token: OperationToken) {
@@ -1809,7 +1637,6 @@ actor VoiceCoordinator {
         guard isOwned(token) else { return }
         operation = nil
         invalidatedTokens.remove(token)
-        speakingTerminalEmitted = false
     }
 
     private func transition(
@@ -1822,26 +1649,12 @@ actor VoiceCoordinator {
         }
         guard state != newState else { return }
         state = newState
-        emit(.stateChanged(newState), token: token, allowInvalidated: allowInvalidated)
         if let token, let recognitionState = Self.recognitionState(from: newState) {
             emitRecognition(
                 .stateChanged(recognitionState),
                 token: token,
                 allowInvalidated: allowInvalidated
             )
-        }
-    }
-
-    private func emit(
-        _ event: VoiceEvent,
-        token: OperationToken? = nil,
-        allowInvalidated: Bool = false
-    ) {
-        if let token {
-            guard isOwned(token), allowInvalidated || isCurrent(token) else { return }
-        }
-        for continuation in eventContinuations.values {
-            continuation.yield(event)
         }
     }
 
@@ -1920,15 +1733,6 @@ actor VoiceCoordinator {
             }
         }
         return true
-    }
-
-    private func removeEventContinuation(_ id: UUID) {
-        eventContinuations.removeValue(forKey: id)
-        eventContinuationOrder.removeAll { $0 == id }
-    }
-
-    private func removeRecognitionEventContinuation(_ id: UUID) {
-        recognitionEventDelivery.removeSubscription(id: id)
     }
 
     private func removeCanonicalEventContinuation(_ id: UUID) {
@@ -2071,7 +1875,6 @@ actor VoiceCoordinator {
         session.nextEventOrdinal &+= 1
         recognitionSession = session
 
-        recognitionEventDelivery.publish(event)
         publishCanonical(.recognition(event))
     }
 
@@ -2084,7 +1887,7 @@ actor VoiceCoordinator {
             phase: .started,
             state: state,
             errorCategory: nil,
-            durationNanoseconds: Self.elapsed(since: diagnostic.startedAtNanoseconds)
+            durationNanoseconds: MonotonicClock.elapsed(since: diagnostic.startedAtNanoseconds)
         ))
     }
 
@@ -2116,7 +1919,7 @@ actor VoiceCoordinator {
             phase: terminal.phase,
             state: state,
             errorCategory: terminal.errorCategory,
-            durationNanoseconds: Self.elapsed(since: diagnostic.startedAtNanoseconds)
+            durationNanoseconds: MonotonicClock.elapsed(since: diagnostic.startedAtNanoseconds)
         ))
         diagnostic.continuation.finish()
     }
@@ -2146,15 +1949,6 @@ actor VoiceCoordinator {
                 errorCategory: failure.category
             )
         }
-    }
-
-    private static var monotonicNanoseconds: UInt64 {
-        DispatchTime.now().uptimeNanoseconds
-    }
-
-    private static func elapsed(since start: UInt64) -> UInt64 {
-        let now = monotonicNanoseconds
-        return now >= start ? now - start : 0
     }
 
     private func publishSpeechQueueEvents(resolveResults: Bool = true) async {
@@ -2257,13 +2051,10 @@ actor VoiceCoordinator {
             let token = try await reserveAfterResourceAdmission(.speaking(.queued))
             workerToken = token
             guard await speechQueue.isCurrent(attempt.playbackID) else {
-                speakingTerminalEmitted = true
                 _ = await stopSpeakingOperation(token)
                 return
             }
-            speakingTerminalEmitted = false
             transition(to: .speaking, token: token)
-            emit(.speechStarted, token: token)
             try await withTaskCancellationHandler(operation: {
                 await output.setProgressHandler { [weak self] range in
                     await self?.publishPlaybackProgress(
@@ -2289,8 +2080,6 @@ actor VoiceCoordinator {
             let outcome: SpeechPlaybackOutcome = .finished
             _ = await speechQueue.finish(playbackID: attempt.playbackID, outcome: outcome)
             await publishSpeechQueueEvents(resolveResults: false)
-            speakingTerminalEmitted = true
-            emit(.speechFinished, token: token)
             transition(to: .idle, token: token, allowInvalidated: true)
             clearSpeakingOperation(token)
             await publishSpeechQueueEvents()
@@ -2325,8 +2114,6 @@ actor VoiceCoordinator {
             if normalized != .cancelled, !interrupted,
                case .speaking(let speakingToken, .queued) = operation,
                speakingToken == workerToken {
-                speakingTerminalEmitted = true
-                emit(.failure(normalized), token: speakingToken, allowInvalidated: true)
                 transition(to: .failed, token: speakingToken, allowInvalidated: true)
             }
             // Any provider/lifecycle error stops ordered advancement. The
@@ -2357,63 +2144,7 @@ actor VoiceCoordinator {
         return token
     }
 
-    private static func recognitionState(from state: VoiceState) -> RecognitionSessionState? {
-        switch state {
-        case .preparing: .preparing
-        case .listening: .listening
-        case .finalizing: .finalizing
-        case .idle, .speaking, .failed: nil
-        }
-    }
-
-    private static func permissionStatus(from authorization: SpeechAuthorization) -> VoicePermissionStatus {
-        switch authorization {
-        case .notDetermined: .notDetermined
-        case .authorized: .authorized
-        case .denied: .denied
-        case .restricted: .restricted
-        }
-    }
-
-    private static func recognitionOutcome(
-        from reason: VoiceTerminationReason
-    ) -> RecognitionOutcome {
-        switch reason {
-        case .completed:
-            .completed
-        case .durationLimitReached:
-            .durationLimitReached
-        case .cancelled:
-            .cancelled
-        case .interrupted(let reason):
-            .interrupted(reason)
-        case .failed(let error):
-            .failed(failure(from: error))
-        }
-    }
-
-    private static func validateRecognitionDuration(_ duration: Duration?) throws {
-        guard let duration else { return }
-        guard duration >= RecognitionSessionConfiguration.minimumMaximumRecognitionDuration,
-              duration <= RecognitionSessionConfiguration.maximumMaximumRecognitionDuration else {
-            throw VoiceError.invalidRecognitionConfiguration(
-                "Maximum recognition duration must be between 1 and 600 seconds, or nil."
-            )
-        }
-    }
-
-    private static func failure(from error: VoiceError) -> VoiceFailure {
-        VoiceFailure(
-            category: error.category,
-            recommendedAction: error.recommendedRecoveryAction
-        )
-    }
-
     private func markUnresolvedOutputFailure() {
-        if !unresolvedOutputFailureEmitted {
-            emit(.failure(Self.speechResourceFailure))
-            unresolvedOutputFailureEmitted = true
-        }
         transition(to: .failed)
     }
 
@@ -2423,245 +2154,7 @@ actor VoiceCoordinator {
     private static let cleanupTimeoutFailure = VoiceError.audioSessionUnavailable(
         "The microphone cleanup did not complete before the recovery deadline."
     )
-    private static let speechCleanupFailure = VoiceError.speechSynthesisUnavailable(
-        "Speech cleanup did not complete before the recovery deadline."
-    )
     private static let speechResourceFailure = VoiceError.speechSynthesisUnavailable(
         "Speech audio resources were not released; retry close() before starting another turn."
     )
-
-    private static func boundedValue<Value: Sendable>(
-        _ task: Task<Value, Never>,
-        timeout: Duration
-    ) async -> Value? {
-        await withCheckedContinuation { continuation in
-            BoundedTaskRace(task: task, timeout: timeout).start(continuation)
-        }
-    }
-
-    private static func awaitProviderStartup(
-        _ task: Task<Void, Error>,
-        cancellation: CancellationSignal
-    ) async throws {
-        try Task.checkCancellation()
-        try await ProviderStartupRace(provider: task, cancellation: cancellation).wait()
-    }
-}
-
-/// A cancellation-aware one-shot signal used to bound observation of an
-/// unstructured provider startup task without dropping ownership of the task.
-/// SAFETY: `lock` protects the one-shot signal and waiter. The continuation is
-/// removed while locked and resumed only after unlocking.
-private final class CancellationSignal: @unchecked Sendable {
-    private let lock = NSLock()
-    private var signaled = false
-    private var continuation: CheckedContinuation<Void, Error>?
-
-    func signal() {
-        lock.lock()
-        guard !signaled else {
-            lock.unlock()
-            return
-        }
-        signaled = true
-        let continuation = self.continuation
-        self.continuation = nil
-        lock.unlock()
-        continuation?.resume(throwing: CancellationError())
-    }
-
-    func wait() async throws {
-        try await withTaskCancellationHandler(operation: {
-            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-                lock.lock()
-                if signaled {
-                    lock.unlock()
-                    continuation.resume(throwing: CancellationError())
-                } else {
-                    self.continuation = continuation
-                    lock.unlock()
-                }
-            }
-        }, onCancel: { [self] in
-            signal()
-        })
-    }
-}
-
-/// Races a provider startup task against cancellation without introducing a
-/// structured child that would wait for a non-cooperative provider forever.
-/// The provider task remains owned by `VoiceCoordinator`; this object only
-/// bounds the caller's observation of it.
-/// SAFETY: `lock` protects the winner flag, waiter, and observer-task handles.
-/// Observer cancellation and continuation resumption happen only after the
-/// critical section, so neither operation can re-enter while the lock is held.
-private final class ProviderStartupRace: @unchecked Sendable {
-    private let provider: Task<Void, Error>
-    private let cancellation: CancellationSignal
-    private let lock = NSLock()
-    private var finished = false
-    private var continuation: CheckedContinuation<Void, Error>?
-    private var providerObserver: Task<Void, Never>?
-    private var cancellationObserver: Task<Void, Never>?
-
-    init(provider: Task<Void, Error>, cancellation: CancellationSignal) {
-        self.provider = provider
-        self.cancellation = cancellation
-    }
-
-    func wait() async throws {
-        try await withCheckedThrowingContinuation { continuation in
-            start(continuation)
-        }
-    }
-
-    private func start(_ continuation: CheckedContinuation<Void, Error>) {
-        lock.lock()
-        guard !finished else {
-            lock.unlock()
-            continuation.resume(throwing: VoiceError.cancelled)
-            return
-        }
-        self.continuation = continuation
-        lock.unlock()
-
-        installProviderObserver(Task { [self] in
-            do {
-                try await provider.value
-                complete(.success(()))
-            } catch {
-                complete(.failure(error))
-            }
-        })
-        installCancellationObserver(Task { [self] in
-            do {
-                try await cancellation.wait()
-                complete(.failure(VoiceError.cancelled))
-            } catch {
-                complete(.failure(error))
-            }
-        })
-    }
-
-    private func installProviderObserver(_ observer: Task<Void, Never>) {
-        lock.lock()
-        if finished {
-            lock.unlock()
-            observer.cancel()
-        } else {
-            providerObserver = observer
-            lock.unlock()
-        }
-    }
-
-    private func installCancellationObserver(_ observer: Task<Void, Never>) {
-        lock.lock()
-        if finished {
-            lock.unlock()
-            observer.cancel()
-        } else {
-            cancellationObserver = observer
-            lock.unlock()
-        }
-    }
-
-    private func complete(_ result: Result<Void, Error>) {
-        lock.lock()
-        guard !finished, let continuation else {
-            lock.unlock()
-            return
-        }
-        finished = true
-        self.continuation = nil
-        let providerObserver = self.providerObserver
-        let cancellationObserver = self.cancellationObserver
-        lock.unlock()
-
-        // These are observers only. Cancelling them must never cancel the
-        // provider task itself; the coordinator retains that task explicitly
-        // when cancellation wins.
-        providerObserver?.cancel()
-        cancellationObserver?.cancel()
-        continuation.resume(with: result)
-    }
-}
-
-/// Races observation of an unstructured task against a timeout without
-/// cancelling the observed task. The observed task may still be cleaning up;
-/// the owner retains it and can reconcile on a later close.
-/// SAFETY: `lock` protects the winner flag, waiter, and observer-task handles.
-/// Task cancellation and continuation resumption happen only after unlocking.
-private final class BoundedTaskRace<Value: Sendable>: @unchecked Sendable {
-    private let task: Task<Value, Never>
-    private let timeout: Duration
-    private let lock = NSLock()
-    private var finished = false
-    private var continuation: CheckedContinuation<Value?, Never>?
-    private var valueTask: Task<Void, Never>?
-    private var timeoutTask: Task<Void, Never>?
-
-    init(task: Task<Value, Never>, timeout: Duration) {
-        self.task = task
-        self.timeout = timeout
-    }
-
-    func start(_ continuation: CheckedContinuation<Value?, Never>) {
-        lock.lock()
-        self.continuation = continuation
-        lock.unlock()
-
-        let valueTask = Task { [self] in
-            complete(await task.value)
-        }
-        install(valueTask: valueTask)
-
-        let timeoutTask = Task { [self] in
-            do {
-                try await Task.sleep(for: timeout)
-                complete(nil)
-            } catch {
-                // The value side won the race.
-            }
-        }
-        install(timeoutTask: timeoutTask)
-    }
-
-    private func install(valueTask: Task<Void, Never>) {
-        lock.lock()
-        if finished {
-            lock.unlock()
-            valueTask.cancel()
-        } else {
-            self.valueTask = valueTask
-            lock.unlock()
-        }
-    }
-
-    private func install(timeoutTask: Task<Void, Never>) {
-        lock.lock()
-        if finished {
-            lock.unlock()
-            timeoutTask.cancel()
-        } else {
-            self.timeoutTask = timeoutTask
-            lock.unlock()
-        }
-    }
-
-    private func complete(_ value: Value?) {
-        lock.lock()
-        guard !finished, let continuation else {
-            lock.unlock()
-            return
-        }
-        finished = true
-        self.continuation = nil
-        let valueTask = self.valueTask
-        let timeoutTask = self.timeoutTask
-        lock.unlock()
-
-        valueTask?.cancel()
-        timeoutTask?.cancel()
-        continuation.resume(returning: value)
-    }
 }

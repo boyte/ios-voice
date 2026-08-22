@@ -1,6 +1,6 @@
 # Testing
 
-The test target is intentionally split between deterministic contract tests and physical-device validation.
+The test target is deterministic contract tests; physical-device behavior is validated by hand against [DeviceMatrix.md](DeviceMatrix.md).
 
 ## Deterministic tests
 
@@ -32,24 +32,13 @@ failed cleanup attempt. It verifies that the coordinator stays in `.failed`,
 does not publish `.idle` or permit a new operation, emits one terminal outcome,
 and becomes reusable only after a later `close()` reconciles the provider.
 
-The release tooling is tested separately with only the Python standard library:
+The small Python release tooling (public API baseline, link checker, source
+archive, repository lint) has its own standard-library tests:
 
 ```sh
 PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover \
   -s Scripts/tests -p 'test_*.py' -v
 ```
-
-These tests cover fail-closed artifact manifests, reproducible timestamps and
-hashes, API graph fingerprints and compatibility reports, and semantic-version
-source archives with relocatable checksums. A green package test run without a
-green script suite is not sufficient release evidence.
-
-CI also reconciles the generated XCTest inventory by exact class-qualified test
-identity, not only by total count. The native `xcresulttool` test-details JSON
-must contain the same unique `TestClass.testMethod` set as
-`Documentation/TestInventory.json`; the one permitted SDK skip is checked by
-identity and documented reason. A count match with a substituted test is not
-accepted.
 
 `AudioBufferConverterTests.swift` uses in-memory `AVAudioPCMBuffer` values to
 cover the converter's same-format fast path, Apple-provided sample-rate and
@@ -73,6 +62,13 @@ therefore validates those descriptors at its own boundary. Physical input
 format negotiation, converter
 behavior for a particular microphone route, and audio-daemon failures remain
 device-only evidence and belong in the device matrix below.
+
+`RecognitionFacadeContractTests.swift` also verifies the completed-local-file
+session contract through the deterministic provider seam: it rejects nonlocal
+URLs before admission and proves that a file session does not request
+microphone permission or acquire the microphone ledger. Decoder behavior,
+actual file formats, and the absence of `AVAudioSession` side effects remain
+physical-device evidence because they use Apple's media stack.
 
 ## Bounded fuzz/property campaign
 
@@ -136,24 +132,13 @@ xcodebuild test -project Testing/AppLocalVoice.xcodeproj -scheme AppLocalVoiceTe
 xcrun simctl shutdown 'iPhone 17 Pro'
 ```
 
-The **Test** workflow keeps its simulator matrix as manual evidence: use
+The **Test** workflow keeps its simulator matrix as a manual run: use
 **Actions → Test → Run workflow** when simulator XCTest evidence is wanted.
-The two form factors run in isolated jobs with one XCTest worker, a 30-minute
-job bound, and always-run diagnostics/uploads. Push and pull-request CI does
-not run this matrix; it continues to validate the package, documentation,
-public API, benchmarks, and memory sweep. This prevents a GitHub-hosted
-CoreSimulator service stall from blocking ordinary changes.
-
-The manual workflow lets `xcodebuild` resolve and boot its fresh runner device
-through its bounded destination timeout, rather than running an unbounded
-preflight `simctl` command. The tag workflow retains two separately erased
-simulator passes. These controls do not repair Xcode or CoreSimulator; they
-make a worker materialization stall bounded and diagnosable instead of leaving
-an ambiguous runner behind.
-
-When investigating a stall, preserve the uploaded `.xcresult`, the
-`xcodebuild` log, the simulator list, and the recent CoreSimulator log. The
-meaningful distinction is whether the stall occurs before test discovery,
-while workers materialize, during a test, or during result collection.
+Push and pull-request CI does not execute XCTest; it builds the package and
+test bundle with warnings as errors, builds DocC, and validates the public API
+baseline. This keeps a GitHub-hosted CoreSimulator service stall from blocking
+ordinary changes, at the cost that a pull request is not proven by a test run
+until the manual workflow or a local simulator run is performed. The tag
+workflow runs the full suite on an iPhone and an iPad simulator.
 
 If the repository is opened in Xcode without a generated scheme, use the package’s test action from the Swift Package project navigator.

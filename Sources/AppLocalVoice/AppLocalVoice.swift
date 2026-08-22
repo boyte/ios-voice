@@ -31,7 +31,7 @@ import AVFAudio
 public final class AppLocalVoice {
     private static let maximumDiagnosticSubscribers = 8
     private static let diagnosticBufferCapacity = 32
-    private let coordinator: VoiceCoordinator
+    let coordinator: VoiceCoordinator
     private let diagnosticsSink: VoiceDiagnosticsSink?
     private var diagnosticContinuations: [UUID: AsyncStream<VoiceDiagnostic>.Continuation] = [:]
     private var diagnosticContinuationOrder: [UUID] = []
@@ -169,27 +169,6 @@ public final class AppLocalVoice {
     public func availableVoices(for locale: Locale = .current) async -> [SpeechVoice] {
         await coordinator.availableVoices(for: locale)
     }
-
-    // Internal seams retain deterministic provider coverage while the public
-    // package exposes only the identified session and playback APIs.
-    func events() async -> AsyncStream<VoiceEvent> { await coordinator.events() }
-    func recognitionEvents() async -> AsyncThrowingStream<RecognitionEvent, Error> {
-        await coordinator.recognitionEvents()
-    }
-    func capabilities(for locale: Locale = .current) async -> SpeechCapabilities {
-        await coordinator.capabilities(for: locale)
-    }
-    func startListening(configuration: RecognitionConfiguration = .init()) async throws {
-        try await coordinator.startListening(configuration: configuration)
-    }
-    func finishListening() async throws -> String { try await coordinator.endListening() }
-    func cancelListening() async { await coordinator.cancelListening() }
-    func speak(_ text: String, configuration: SpeechConfiguration = .init()) async throws {
-        try await coordinator.speak(text, configuration: configuration)
-    }
-    func pauseSpeaking() async { await coordinator.pauseSpeaking() }
-    func resumeSpeaking() async { await coordinator.resumeSpeaking() }
-    func stopSpeaking() async { _ = await coordinator.stopSpeaking() }
 
     /// Admits a host-identified recognition session without waiting for Apple
     /// provider preparation to finish.
@@ -342,7 +321,7 @@ public final class AppLocalVoice {
     @discardableResult
     public func close() async -> CleanupResult {
         let closeID = UUID()
-        let closeStart = Self.monotonicNanoseconds
+        let closeStart = MonotonicClock.nanoseconds
         emit(
             operationID: closeID,
             operation: .close,
@@ -358,7 +337,7 @@ public final class AppLocalVoice {
             phase: closed ? .completed : .failed,
             state: finalState,
             errorCategory: closed ? nil : .audioSessionUnavailable,
-            durationNanoseconds: Self.elapsed(since: closeStart)
+            durationNanoseconds: MonotonicClock.elapsed(since: closeStart)
         )
         guard !closed else { return .released }
         let failure: VoiceFailure
@@ -368,15 +347,6 @@ public final class AppLocalVoice {
             failure = VoiceError.cleanupPending.failure
         }
         return .blocked(failure)
-    }
-
-    var state: VoiceState { get async { await coordinator.state } }
-
-    private static var monotonicNanoseconds: UInt64 { DispatchTime.now().uptimeNanoseconds }
-
-    private static func elapsed(since start: UInt64) -> UInt64 {
-        let now = monotonicNanoseconds
-        return now >= start ? now - start : 0
     }
 
     private func emit(
