@@ -11,6 +11,12 @@ speech APIs and passes text to Apple's local synthesizer. It does not send raw
 microphone audio or transcript text to an AppLocalVoice server because there is
 no AppLocalVoice server.
 
+A host that constructs `AppLocalVoice(synthesizer:)` with a plug-in engine
+(for example `AppLocalVoiceKokoro`) sends speech text to that engine inside the
+app process; the engine must not retain, log, or transmit it, and the package
+still never does. Engine model files are host-bundled; the package downloads
+nothing.
+
 Apple may manage speech assets according to the operating system's documented
 behavior. The package reports model availability and does not claim control over
 Apple's internal implementation.

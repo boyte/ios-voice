@@ -118,6 +118,22 @@ Queue acceptance is not playback completion. Use `waitForSpeechPlayback(id:)`
 or terminal `voiceEvents()` queue events for the outcome. Playback progress is
 advisory UTF-16 text-range data for optional highlighting.
 
+### Use a different voice engine
+
+Apple's synthesizer is the default. To speak through another on-device engine,
+construct the service with any type conforming to `SpeechSynthesizer` — the
+queue, events, barge-in, and progress are identical for every engine:
+
+```swift
+let voice = AppLocalVoice(synthesizer: engine)
+```
+
+`AppLocalVoiceKokoro` (Kokoro-82M on MLX, English, Apple GPUs only) is the
+first engine product. Enable the package trait `Kokoro` in the dependency that
+uses it; consumers that don't never fetch or build it. The engine is
+host-owned: call `prepare()` early to load the model and `unload()` on memory
+pressure. Hosts ship the model and voice files themselves.
+
 ## Prepare recognition
 
 Capability checks are side-effect-free. They do not prompt, install a model,

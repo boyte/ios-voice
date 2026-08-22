@@ -43,5 +43,16 @@ become a permanent public compatibility burden.
 ## Provider boundary
 
 The Apple implementation is the default and has no third-party runtime
-dependency. A future provider should ship as a separately versioned adapter
-product; a full conversational provider remains outside this package.
+dependency. Text-to-speech is pluggable through one public protocol,
+`SpeechSynthesizer` (text in, mono Float32 PCM out): a host passes any engine
+to `AppLocalVoice(synthesizer:)`, and the package's engine-agnostic
+`PCMSpeechOutput` owns chunking, playing the first chunk while the next is
+synthesized, the audio-session lease, interruptions, barge-in, pause/resume,
+and exact completed-chunk progress. The engine is chosen at construction and
+never hot-switched.
+
+`AppLocalVoiceKokoro` is the first engine product (Kokoro-82M on MLX). It is
+gated behind the package trait `Kokoro` so consumers that never enable it
+fetch and build nothing beyond the core; it runs on Apple GPUs only (no
+simulator). Speech recognition remains Apple-only; a full conversational
+provider remains outside this package.
