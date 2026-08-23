@@ -6,6 +6,15 @@ All notable changes to AppLocalVoice are documented here.
 
 ### Pluggable text-to-speech engines
 
+- Vendored the Kokoro MLX runtime at `Vendor/KokoroSwift` (from
+  mlalma/kokoro-ios 1.0.9, MIT; provenance and local modifications in
+  `Vendor/KokoroSwift/VENDOR.md`). The published 1.0.9 package does not
+  build on Xcode 26 — its manifest omits the `MLXFast` product its sources
+  import, and its open `MLXUtilsLibrary` range resolves to 0.0.7, which
+  removed an API it calls — so the runtime ships in-tree and the package's
+  engine dependencies are only mlx-swift, MisakiSwift, and MLXUtilsLibrary,
+  all gated behind the `Kokoro` trait.
+
 - Added the public `SpeechSynthesizer` protocol (text in, mono Float32 PCM
   out) with `SynthesizedSpeech`, and
   `AppLocalVoice(synthesizer:queueConfiguration:lifecyclePolicy:diagnostics:)`

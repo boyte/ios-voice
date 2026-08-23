@@ -51,8 +51,12 @@ synthesized, the audio-session lease, interruptions, barge-in, pause/resume,
 and exact completed-chunk progress. The engine is chosen at construction and
 never hot-switched.
 
-`AppLocalVoiceKokoro` is the first engine product (Kokoro-82M on MLX). It is
-gated behind the package trait `Kokoro` so consumers that never enable it
-fetch and build nothing beyond the core; it runs on Apple GPUs only (no
-simulator). Speech recognition remains Apple-only; a full conversational
-provider remains outside this package.
+`AppLocalVoiceKokoro` is the first engine product (Kokoro-82M on MLX). The
+Kokoro runtime is vendored at `Vendor/KokoroSwift` (upstream kokoro-ios
+1.0.9 could not build on Xcode 26; see `Vendor/KokoroSwift/VENDOR.md`), so
+the package's only engine dependencies are mlx-swift, MisakiSwift, and
+MLXUtilsLibrary — all gated behind the package trait `Kokoro`. Consumers
+that never enable the trait fetch and build nothing beyond the core. MLX
+runs on Apple GPUs only (no simulator execution). Speech recognition
+remains Apple-only; a full conversational provider remains outside this
+package.
