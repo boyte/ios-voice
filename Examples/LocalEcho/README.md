@@ -16,6 +16,30 @@ From the repository root, open `Examples/LocalEcho/LocalEcho.xcodeproj` in Xcode
 
 Select the `LocalEcho` scheme, choose an iOS 26 simulator or a connected iPhone/iPad, and press Run. A simulator can verify the UI and package integration; microphone capture and on-device speech behavior require a real device.
 
+## Try the Kokoro voice (device only)
+
+Local Echo also demonstrates the `SpeechSynthesizer` plug-in contract. The
+`LocalEchoKokoro/` folder is a one-file local package that enables the
+repository's `Kokoro` package trait and re-exports the engine; the app links
+it and decides at launch which engine to construct.
+
+To hear Kokoro instead of Apple's synthesizer:
+
+1. Run Local Echo on a physical iPhone or iPad with an Apple GPU (MLX does
+   not run on the simulator; the simulator always uses Apple's voice).
+2. Copy `kokoro-v1_0.safetensors` and `voices.npz` into the app's Documents
+   folder — via the Files app, AirDrop, or Finder file sharing (the app
+   declares `UIFileSharingEnabled`). The files are not part of this
+   repository; the [KokoroTestApp](https://github.com/mlalma/KokoroTestApp)
+   repository carries both under `Resources/` (Git LFS, about 330 MB).
+3. Relaunch the app. The "Speech engine" line shows `Kokoro · af_heart` and
+   Speak now uses the Kokoro voice. Set a different voice name from
+   `voices.npz` with the `KokoroVoice` user default if you want another
+   speaker. Remove the files and relaunch to return to Apple's voice.
+
+The first Speak after a cold launch waits for the model to finish loading;
+`prepare()` starts at launch to hide most of that cost.
+
 You can also build it from the repository root:
 
 ```sh

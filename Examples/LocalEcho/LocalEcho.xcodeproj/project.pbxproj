@@ -11,6 +11,7 @@
 		A10000010000000000000002 /* LocalEchoModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000002 /* LocalEchoModel.swift */; };
 		A10000010000000000000003 /* LocalEchoView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000010000000000000003 /* LocalEchoView.swift */; };
 		A10000010000000000000004 /* AppLocalVoice in Frameworks */ = {isa = PBXBuildFile; productRef = A30000010000000000000001 /* AppLocalVoice */; };
+		A10000010000000000000005 /* LocalEchoKokoro in Frameworks */ = {isa = PBXBuildFile; productRef = A30000010000000000000002 /* LocalEchoKokoro */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -27,6 +28,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				A10000010000000000000004 /* AppLocalVoice in Frameworks */,
+				A10000010000000000000005 /* LocalEchoKokoro in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -78,6 +80,7 @@
 			name = LocalEcho;
 			packageProductDependencies = (
 				A30000010000000000000001 /* AppLocalVoice */,
+				A30000010000000000000002 /* LocalEchoKokoro */,
 			);
 			productName = LocalEcho;
 			productReference = A20000010000000000000005 /* LocalEcho.app */;
@@ -108,6 +111,7 @@
 			mainGroup = A50000010000000000000001;
 			packageReferences = (
 				AA0000010000000000000001 /* XCLocalSwiftPackageReference "AppLocalVoice" */,
+				AA0000010000000000000002 /* XCLocalSwiftPackageReference "LocalEchoKokoro" */,
 			);
 			productRefGroup = A50000010000000000000003 /* Products */;
 			projectDirPath = "";
@@ -149,6 +153,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				ARCHS = arm64;
 				CLANG_ENABLE_MODULES = YES;
 				CLANG_ENABLE_OBJC_ARC = YES;
 				CODE_SIGN_STYLE = Automatic;
@@ -173,6 +178,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				ARCHS = arm64;
 				CLANG_ENABLE_MODULES = YES;
 				CLANG_ENABLE_OBJC_ARC = YES;
 				CODE_SIGN_STYLE = Automatic;
@@ -221,6 +227,10 @@
 			isa = XCLocalSwiftPackageReference;
 			relativePath = ../..;
 		};
+		AA0000010000000000000002 /* XCLocalSwiftPackageReference "LocalEchoKokoro" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = LocalEchoKokoro;
+		};
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -228,6 +238,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = AA0000010000000000000001 /* XCLocalSwiftPackageReference "AppLocalVoice" */;
 			productName = AppLocalVoice;
+		};
+		A30000010000000000000002 /* LocalEchoKokoro */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = AA0000010000000000000002 /* XCLocalSwiftPackageReference "LocalEchoKokoro" */;
+			productName = LocalEchoKokoro;
 		};
 /* End XCSwiftPackageProductDependency section */
 

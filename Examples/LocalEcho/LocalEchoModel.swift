@@ -16,11 +16,15 @@ final class LocalEchoModel {
     var isSpeaking = false
     var isPaused = false
 
+    /// Which speech engine the app constructed at launch ("Apple" or Kokoro).
+    let engineLabel: String
+
     private let voice: AppLocalVoice
     private var activeSessionID: RecognitionSessionID?
 
-    init(voice: AppLocalVoice) {
+    init(voice: AppLocalVoice, engineLabel: String = "Apple") {
         self.voice = voice
+        self.engineLabel = engineLabel
     }
 
     /// Only the app-owned model retires the shared voice service.

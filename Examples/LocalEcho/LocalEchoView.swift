@@ -15,6 +15,10 @@ struct LocalEchoView: View {
                 .multilineTextAlignment(.center)
                 .foregroundStyle(.secondary)
 
+            Text("Speech engine: \(model.engineLabel)")
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+
             if let voiceTip = model.voiceTip {
                 Text(voiceTip)
                     .font(.footnote)

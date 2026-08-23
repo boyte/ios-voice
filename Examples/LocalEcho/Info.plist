@@ -18,6 +18,8 @@
 	<string>1</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>LSSupportsOpeningDocumentsInPlace</key>
+	<true/>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Local Echo uses the microphone to transcribe your speech on this device.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
@@ -38,6 +40,8 @@
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
+	<true/>
+	<key>UIFileSharingEnabled</key>
 	<true/>
 </dict>
 </plist>
