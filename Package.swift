@@ -16,7 +16,14 @@ let package = Package(
         // trait is off. Versions are the set proven against the vendored
         // KokoroSwift 1.0.9 sources (see Vendor/KokoroSwift/VENDOR.md):
         // MLXUtilsLibrary 0.0.7 removed BenchmarkTimer, so it stays pinned.
-        .package(url: "https://github.com/ml-explore/mlx-swift", .upToNextMinor(from: "0.31.6")),
+        //
+        // mlx-swift is held at 0.30.2 — the version kokoro-ios 1.0.9 itself
+        // resolved — because 0.31.x adds the `CudaBuild` build-tool plugin.
+        // That plugin is a no-op on Apple platforms, but Xcode still refuses
+        // to run an untrusted plugin and Xcode Cloud has no way to trust one,
+        // so 0.31.x cannot be archived in CI. 0.30.2 exposes every product we
+        // use (MLX, MLXNN, MLXRandom, MLXFFT, MLXFast) and no plugins.
+        .package(url: "https://github.com/ml-explore/mlx-swift", exact: "0.30.2"),
         .package(url: "https://github.com/mlalma/MisakiSwift", exact: "1.0.5"),
         .package(url: "https://github.com/mlalma/MLXUtilsLibrary.git", exact: "0.0.6")
     ],
