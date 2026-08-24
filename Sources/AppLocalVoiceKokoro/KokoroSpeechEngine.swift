@@ -148,6 +148,27 @@ public actor KokoroSpeechEngine: SpeechSynthesizer {
     /// `JetsamEvent` log. Carries no text, only lengths and byte counts.
     private static let log = Logger(subsystem: "AppLocalVoice", category: "Kokoro")
 
+    /// Logged once per load: what the device allows and what MLX was told, so
+    /// a later `peakMB` reading can be judged against the real ceiling rather
+    /// than an assumed one.
+    private static func recordDeviceBudget() {
+        let info = MLX.GPU.deviceInfo()
+        let workingSetMB = Int(info.maxRecommendedWorkingSetSize) >> 20
+        let deviceMB = info.memorySize >> 20
+        let cacheLimitMB = MLX.Memory.cacheLimit >> 20
+        let memoryLimitMB = MLX.Memory.memoryLimit >> 20
+        let headroomMB = Int(os_proc_available_memory()) >> 20
+        log.info(
+            """
+            budget deviceMB=\(deviceMB, privacy: .public) \
+            workingSetMB=\(workingSetMB, privacy: .public) \
+            cacheLimitMB=\(cacheLimitMB, privacy: .public) \
+            memoryLimitMB=\(memoryLimitMB, privacy: .public) \
+            headroomMB=\(headroomMB, privacy: .public)
+            """
+        )
+    }
+
     private static func record(utf16Length: Int, sampleCount: Int, since start: UInt64) {
         let elapsedMS = (DispatchTime.now().uptimeNanoseconds &- start) / 1_000_000
         let snapshot = MLX.Memory.snapshot()
@@ -198,15 +219,31 @@ public actor KokoroSpeechEngine: SpeechSynthesizer {
         unloadPending = false
     }
 
-    /// MLX keeps freed GPU buffers in an unbounded cache. A long reply is many
-    /// synthesis passes, and on iOS the app is killed for memory long before
-    /// the cache is reclaimed, so hold it to a small ceiling once per process.
+    /// MLX sizes itself for a Mac, and on a phone those defaults sit at or
+    /// above the point where iOS kills the app.
+    ///
+    /// Its allocator derives both thresholds from Metal's recommended working
+    /// set: the buffer cache may grow to `1.5 x` that size, and it does not
+    /// try to reclaim anything until active + cached memory reaches `0.95 x`
+    /// it. On a 6 GB iPhone that reclaim threshold lands near 3.2 GB — which
+    /// is also roughly where the per-process jetsam limit sits, so the app is
+    /// killed at the very moment MLX would first have freed something. A
+    /// confirmed kill of this app recorded 3,278 MB resident.
+    ///
+    /// Both ceilings are therefore set explicitly, once per process. The cache
+    /// is held small because a synthesis pass allocates and frees large
+    /// intermediates that would otherwise accumulate across chunks. The memory
+    /// limit is not a hard cap and cannot fail an allocation — in this version
+    /// it only moves the point at which the allocator releases cached buffers,
+    /// so lowering it makes MLX reclaim early instead of never.
     private static let boundMemoryOnce: Void = {
         MLX.Memory.cacheLimit = 32 * 1024 * 1024
+        MLX.Memory.memoryLimit = 1024 * 1024 * 1024
     }()
 
     private static func load(_ resources: KokoroSpeechResources) throws -> Runtime {
         _ = boundMemoryOnce
+        recordDeviceBudget()
         let fileManager = FileManager.default
         guard fileManager.fileExists(atPath: resources.modelFile.path),
               fileManager.fileExists(atPath: resources.voicesFile.path) else {
