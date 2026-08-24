@@ -91,7 +91,7 @@ public actor KokoroSpeechEngine: SpeechSynthesizer {
         let language: Language
     }
 
-    private let resources: KokoroSpeechResources
+    private var resources: KokoroSpeechResources
     private var runtime: Runtime?
     private var loading: Task<Void, Error>?
     private var inFlight = 0
@@ -110,6 +110,18 @@ public actor KokoroSpeechEngine: SpeechSynthesizer {
     /// load. Never touches `AVAudioSession`.
     public func prepare() async throws {
         try await ensureLoaded(warmUp: true)
+    }
+
+    /// Changes the precision the model is held and computed in.
+    ///
+    /// The loaded model is dropped and the next `prepare()` or `synthesize`
+    /// reloads at the new precision; a synthesis already in flight finishes at
+    /// the old one. This exists so a host can compare precisions by ear in a
+    /// running app rather than shipping a build for each.
+    public func setPrecision(_ precision: KokoroPrecision) async {
+        guard resources.precision != precision else { return }
+        resources.precision = precision
+        await unload()
     }
 
     /// Drops the model and voice. If a synthesis is in flight the drop happens
