@@ -51,3 +51,7 @@ Documentation/PublicAPIReview.md
 reviews/
 PLAN.md
 PLAN-*.md
+
+# Crash/jetsam reports pulled from a device: contain device identifiers
+# and the full process list of a personal phone. Keep them local.
+BUGS/
