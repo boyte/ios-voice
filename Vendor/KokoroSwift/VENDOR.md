@@ -30,6 +30,12 @@ Local modifications:
    invalid, or unsuitable"), which fails the Xcode Cloud archive.
 3. The target builds in Swift 5 language mode (upstream's mode); the rest
    of the package uses Swift 6.
+4. `TTSEngine/KokoroTTS.swift` gains a `KokoroTTSError.noSpeakableContent`
+   case and guards `prepareInputTensors` against an empty token array.
+   Upstream passes `inputIds.count` to `extractStyleEmbeddings`, which
+   indexes the voice tensor at `tokenCount - 1`; text that phonemizes to no
+   in-vocabulary tokens (`\n` and `-` are not in Kokoro's 114-entry vocab)
+   makes that index -1 and aborts the process instead of throwing.
 
 To update: diff upstream at the new tag against this directory minus the
 `#if Kokoro` wrappers, review, re-apply the wrappers, and update this file.

@@ -96,6 +96,7 @@ public actor KokoroSpeechEngine: SpeechSynthesizer {
             return
         }
         runtime = nil
+        MLX.GPU.clearCache()
     }
 
     /// The configured voice, for English locales only. Kokoro's voices are
@@ -118,6 +119,7 @@ public actor KokoroSpeechEngine: SpeechSynthesizer {
             if inFlight == 0, unloadPending {
                 unloadPending = false
                 self.runtime = nil
+                MLX.GPU.clearCache()
             }
         }
         try Task.checkCancellation()
@@ -166,7 +168,15 @@ public actor KokoroSpeechEngine: SpeechSynthesizer {
         unloadPending = false
     }
 
+    /// MLX keeps freed GPU buffers in an unbounded cache. A long reply is many
+    /// synthesis passes, and on iOS the app is killed for memory long before
+    /// the cache is reclaimed, so hold it to a small ceiling once per process.
+    private static let boundMemoryOnce: Void = {
+        MLX.GPU.set(cacheLimit: 32 * 1024 * 1024)
+    }()
+
     private static func load(_ resources: KokoroSpeechResources) throws -> Runtime {
+        _ = boundMemoryOnce
         let fileManager = FileManager.default
         guard fileManager.fileExists(atPath: resources.modelFile.path),
               fileManager.fileExists(atPath: resources.voicesFile.path) else {

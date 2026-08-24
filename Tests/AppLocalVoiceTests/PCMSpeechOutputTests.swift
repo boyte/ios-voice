@@ -81,6 +81,50 @@ final class PCMSpeechOutputTests: XCTestCase {
         XCTAssertTrue(capped.allSatisfy { $0.text.utf16.count <= 128 })
     }
 
+    func testChunksNeverContainOnlyUnspeakableContent() {
+        // A chunk that carries no letters or digits phonemizes to nothing.
+        // Kokoro then indexes its voice tensor at `tokenCount - 1` == -1 and
+        // the process aborts, so such a chunk must never be emitted alone.
+        let notes = [
+            "First thought here.\n\n---\n\nSecond thought here.",
+            "Heading\n\n- one\n- two\n- three\n\n***\n\nMore text after the rule.",
+            String(repeating: "A sentence about something. ", count: 20) + "\n\n---\n\n"
+                + String(repeating: "Another sentence entirely. ", count: 20),
+            "Done.\n\n\n\n   \n\n\n",
+            "Список дел.\n\n—\n\nЕщё один пункт."
+        ]
+
+        // Small limits let a boundary land on a separator, which is the case
+        // that isolates unspeakable text into a chunk of its own.
+        for (note, limit) in notes.flatMap({ note in [4_000, 300, 64, 32].map { (note, $0) } }) {
+            let chunks = PCMSpeechOutput.chunk(note, maximumUTF16Length: limit)
+            for chunk in chunks {
+                XCTAssertTrue(
+                    chunk.text.contains(where: { $0.isLetter || $0.isNumber }),
+                    "unspeakable chunk \(String(reflecting: chunk.text)) in \(String(reflecting: note))"
+                )
+            }
+            // Merging must not disturb the source mapping progress depends on.
+            XCTAssertEqual(chunks.map(\.text).joined(), note)
+            var expectedStart = 0
+            for chunk in chunks {
+                XCTAssertEqual(chunk.utf16Range.lowerBound, expectedStart)
+                XCTAssertEqual(chunk.utf16Range.count, chunk.text.utf16.count)
+                expectedStart = chunk.utf16Range.upperBound
+            }
+            XCTAssertEqual(expectedStart, note.utf16.count)
+        }
+    }
+
+    func testTextWithoutAnySpeakableContentProducesNoChunks() {
+        for note in ["---", "\n\n\n", "***  ---  ***", "...!?"] {
+            XCTAssertTrue(
+                PCMSpeechOutput.chunk(note, maximumUTF16Length: 4_000).isEmpty,
+                "expected no chunks for \(String(reflecting: note))"
+            )
+        }
+    }
+
     // MARK: Lease ordering and prefetch
 
     func testLeaseIsAcquiredOnlyAfterTheFirstChunkIsSynthesized() async throws {

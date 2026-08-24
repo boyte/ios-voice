@@ -28,6 +28,9 @@ public final class KokoroTTS {
   public enum KokoroTTSError: Error {
     /// Thrown when input text exceeds maximum token count
     case tooManyTokens
+    /// Thrown when the text phonemizes to no in-vocabulary tokens at all.
+    /// Local addition: see VENDOR.md.
+    case noSpeakableContent
   }
   
   /// BERT model for encoding phoneme sequences
@@ -263,6 +266,15 @@ public final class KokoroTTS {
     // Check token count limit
     guard inputIds.count <= Constants.maxTokenCount else {
       throw KokoroTTSError.tooManyTokens
+    }
+
+    // Local addition (see VENDOR.md): text whose phonemes are all outside the
+    // vocabulary — a `---` rule, a run of newlines, stray symbols — tokenizes
+    // to nothing. `extractStyleEmbeddings` would then index the voice tensor
+    // at `tokenCount - 1` == -1 and abort the process. Fail as a Swift error
+    // the caller can handle instead.
+    guard !inputIds.isEmpty else {
+      throw KokoroTTSError.noSpeakableContent
     }
 
     // Add padding tokens at start and end

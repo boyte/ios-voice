@@ -193,7 +193,53 @@ final class PCMSpeechOutput: SpeechOutput {
                     ..< (chunk.utf16Range.upperBound + first.utf16Range.count)
             )
         }
-        return [first] + rest
+        return mergingUnspeakable([first] + rest)
+    }
+
+    /// A chunk with no letters or digits — a `---` rule, a run of blank lines,
+    /// punctuation stranded by a boundary — can phonemize to nothing at all.
+    /// An engine asked to synthesize nothing may do something far worse than
+    /// return silence (Kokoro indexes its voice tensor at `tokenCount - 1`,
+    /// which traps at -1), so such a chunk is never handed over alone: it is
+    /// folded into a neighbour. Ranges stay contiguous and exact, so playback
+    /// progress is unaffected. Text that is *entirely* unspeakable yields no
+    /// chunks, which `speak` treats as a no-op.
+    static func mergingUnspeakable(_ chunks: [SpeechTextChunker.Chunk]) -> [SpeechTextChunker.Chunk] {
+        func isSpeakable(_ chunk: SpeechTextChunker.Chunk) -> Bool {
+            chunk.text.contains { $0.isLetter || $0.isNumber }
+        }
+        guard chunks.contains(where: isSpeakable) else { return [] }
+
+        var merged: [SpeechTextChunker.Chunk] = []
+        var pending: SpeechTextChunker.Chunk?
+        for chunk in chunks {
+            let combined = pending.map {
+                SpeechTextChunker.Chunk(
+                    text: $0.text + chunk.text,
+                    utf16Range: $0.utf16Range.lowerBound ..< chunk.utf16Range.upperBound
+                )
+            } ?? chunk
+            if isSpeakable(combined) {
+                merged.append(combined)
+                pending = nil
+            } else {
+                // Unspeakable so far; carry it forward onto the next chunk.
+                pending = combined
+            }
+        }
+        // A trailing unspeakable run joins the last spoken chunk rather than
+        // being dropped, so the ranges still cover the whole request.
+        if let pending {
+            if let last = merged.popLast() {
+                merged.append(SpeechTextChunker.Chunk(
+                    text: last.text + pending.text,
+                    utf16Range: last.utf16Range.lowerBound ..< pending.utf16Range.upperBound
+                ))
+            } else {
+                merged.append(pending)
+            }
+        }
+        return merged
     }
 
     // MARK: Pipeline
