@@ -10,10 +10,28 @@ enum SpeechTextChunker {
         let utf16Range: Range<Int>
     }
 
-    static func split(_ text: String, maximumUTF16Length: Int) -> [String] {
-        guard maximumUTF16Length > 0, text.utf16.count > maximumUTF16Length else {
+    /// Splits `text` so that no chunk exceeds `maximumUTF16Length`, and — when
+    /// `maximumSentences` is given — so that no chunk carries more than that
+    /// many complete sentences.
+    ///
+    /// The sentence bound exists for synthesizers whose cost scales with the
+    /// length of one utterance: a neural engine builds a compute graph per
+    /// chunk, so an unbounded chunk is an unbounded allocation. Apple's
+    /// synthesizer has no such cost and passes no sentence bound, which keeps
+    /// its behavior exactly as before.
+    static func split(
+        _ text: String,
+        maximumUTF16Length: Int,
+        maximumSentences: Int? = nil
+    ) -> [String] {
+        let sentenceLimit = maximumSentences.map { max(1, $0) }
+        guard maximumUTF16Length > 0 else { return text.isEmpty ? [] : [text] }
+        // With a sentence bound, text that fits the length budget may still
+        // need splitting, so the single-chunk shortcut no longer applies.
+        guard sentenceLimit != nil || text.utf16.count > maximumUTF16Length else {
             return text.isEmpty ? [] : [text]
         }
+        if text.isEmpty { return [] }
 
         var chunks: [String] = []
         // The old implementation rescanned the full remaining substring to
@@ -27,6 +45,7 @@ enum SpeechTextChunker {
         var chunkStart = text.startIndex
         var cursor = chunkStart
         var chunkUTF16Length = 0
+        var sentenceCount = 0
         var lastSentenceBoundary: String.Index?
         var lastWhitespaceBoundary: String.Index?
 
@@ -45,6 +64,7 @@ enum SpeechTextChunker {
                 chunkStart = boundary
                 cursor = boundary
                 chunkUTF16Length = 0
+                sentenceCount = 0
                 lastSentenceBoundary = nil
                 lastWhitespaceBoundary = nil
                 continue
@@ -61,8 +81,19 @@ enum SpeechTextChunker {
             }
 
             chunkUTF16Length += characterUTF16Length
-            if isSentenceTerminator(character) {
+            if isSentenceEnd(character, followedBy: next < text.endIndex ? text[next] : nil) {
                 lastSentenceBoundary = next
+                sentenceCount += 1
+                if let sentenceLimit, sentenceCount >= sentenceLimit {
+                    chunks.append(String(text[chunkStart..<next]))
+                    chunkStart = next
+                    cursor = next
+                    chunkUTF16Length = 0
+                    sentenceCount = 0
+                    lastSentenceBoundary = nil
+                    lastWhitespaceBoundary = nil
+                    continue
+                }
             }
             if character.isWhitespace {
                 lastWhitespaceBoundary = next
@@ -82,18 +113,33 @@ enum SpeechTextChunker {
     /// identity mapping rather than a duration or character-count estimate.
     static func splitWithUTF16Ranges(
         _ text: String,
-        maximumUTF16Length: Int
+        maximumUTF16Length: Int,
+        maximumSentences: Int? = nil
     ) -> [Chunk] {
         var offset = 0
-        return split(text, maximumUTF16Length: maximumUTF16Length).map { chunk in
+        return split(
+            text,
+            maximumUTF16Length: maximumUTF16Length,
+            maximumSentences: maximumSentences
+        ).map { chunk in
             let length = chunk.utf16.count
             defer { offset += length }
             return Chunk(text: chunk, utf16Range: offset..<(offset + length))
         }
     }
 
-    private static func isSentenceTerminator(_ character: Character) -> Bool {
-        character == "." || character == "!" || character == "?"
-            || character == "。" || character == "！" || character == "？"
+    /// Whether `character` ends a sentence, given the character that follows.
+    ///
+    /// Full-width terminators are unambiguous: CJK does not put a space after
+    /// them. An ASCII terminator only ends a sentence when something
+    /// whitespace-like or nothing at all follows, so `3.5`, `v1.2.1`, and
+    /// `example.com` stay whole. That matters more than it used to: a
+    /// terminator now forces a chunk break rather than merely being preferred
+    /// as one, and splitting a decimal would be audible.
+    private static func isSentenceEnd(_ character: Character, followedBy next: Character?) -> Bool {
+        if character == "。" || character == "！" || character == "？" { return true }
+        guard character == "." || character == "!" || character == "?" else { return false }
+        guard let next else { return true }
+        return next.isWhitespace
     }
 }

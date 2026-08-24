@@ -19,9 +19,23 @@ import UIKit
 @MainActor
 final class PCMSpeechOutput: SpeechOutput {
     /// Keeps first audio fast: the first chunk is roughly one sentence.
+    /// Deliberately not sentence-bounded — a reply that opens with "Sure."
+    /// would otherwise buy 0.3 s of audio to cover the next chunk's synthesis.
     static let firstChunkMaximumUTF16Length = 140
-    /// Later chunks: a few sentences, well inside any engine's input limit.
-    static let chunkMaximumUTF16Length = 300
+    /// Later chunks are bounded two ways, because a neural engine's cost
+    /// scales with the length of a single utterance and a phone has to survive
+    /// the worst case, not the average one.
+    ///
+    /// The sentence bound is the one that shapes ordinary prose: at most three
+    /// complete sentences per synthesis, so a long reply streams as a sequence
+    /// of small graphs instead of a few large ones. The length bound is the
+    /// backstop for text the sentence bound cannot help with — one runaway
+    /// sentence, a list without terminators, dictated text with no
+    /// punctuation. Three typical sentences of assistant prose land near 240
+    /// UTF-16 units (~17 s of speech), so the two bounds bite at about the
+    /// same size and neither routinely pre-empts the other mid-sentence.
+    static let chunkMaximumUTF16Length = 240
+    static let chunkSentenceLimit = 3
     private static let watchdogBaseSeconds = 20.0
     private static let watchdogSecondsPerUTF16Unit = 0.02
     private static let watchdogMaximumSeconds = 120.0
@@ -175,9 +189,10 @@ final class PCMSpeechOutput: SpeechOutput {
 
     // MARK: Chunking
 
-    /// Splits a request into a short first chunk followed by sentence-group
-    /// chunks, each carrying its exact UTF-16 range in `text`. Both limits are
-    /// capped by the host's `maximumCharactersPerUtterance`.
+    /// Splits a request into a short first chunk followed by chunks of at most
+    /// ``chunkSentenceLimit`` sentences, each carrying its exact UTF-16 range
+    /// in `text`. Both length limits are capped by the host's
+    /// `maximumCharactersPerUtterance`.
     static func chunk(_ text: String, maximumUTF16Length: Int) -> [SpeechTextChunker.Chunk] {
         let firstLimit = max(1, min(firstChunkMaximumUTF16Length, maximumUTF16Length))
         let restLimit = max(1, min(chunkMaximumUTF16Length, maximumUTF16Length))
@@ -186,7 +201,11 @@ final class PCMSpeechOutput: SpeechOutput {
         }
         let firstEnd = text.utf16.index(text.utf16.startIndex, offsetBy: first.utf16Range.count)
         let remainder = String(text[firstEnd...])
-        let rest = SpeechTextChunker.splitWithUTF16Ranges(remainder, maximumUTF16Length: restLimit).map { chunk in
+        let rest = SpeechTextChunker.splitWithUTF16Ranges(
+            remainder,
+            maximumUTF16Length: restLimit,
+            maximumSentences: chunkSentenceLimit
+        ).map { chunk in
             SpeechTextChunker.Chunk(
                 text: chunk.text,
                 utf16Range: (chunk.utf16Range.lowerBound + first.utf16Range.count)

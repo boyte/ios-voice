@@ -153,10 +153,16 @@ final class PCMSpeechOutputTests: XCTestCase {
 
     func testPrefetchesOneChunkAheadAndPublishesProgressOnlyAtCompletedChunkBoundaries() async throws {
         let harness = makeHarness()
-        let text = String(repeating: "A short sentence here. ", count: 12).trimmingCharacters(in: .whitespaces)
+        // Eleven sentences under a 128-unit host limit: five fill the latency
+        // chunk, the remaining six make two three-sentence chunks. The
+        // choreography below fires exactly three completions, so the fixture
+        // has to produce exactly three chunks.
+        let text = String(repeating: "A short sentence here. ", count: 11).trimmingCharacters(in: .whitespaces)
         let configuration = SpeechConfiguration(locale: Locale(identifier: "en-US"), maximumCharactersPerUtterance: 128)
         let chunks = PCMSpeechOutput.chunk(text, maximumUTF16Length: 128)
-        XCTAssertEqual(chunks.count, 3)
+        XCTAssertEqual(chunks.count, 3, "fixture no longer matches the chunking bounds")
+        // Fail fast: with a different count the waits below would hang instead.
+        guard chunks.count == 3 else { return }
         let collector = ProgressRangeCollector()
         await harness.output.setProgressHandler { range in await collector.append(range) }
 
@@ -468,6 +474,94 @@ final class PCMSpeechOutputTests: XCTestCase {
         let state = await voice.state
         XCTAssertEqual(state, .idle)
         _ = await voice.close()
+    }
+
+    // MARK: Streaming bound
+
+    private func sentenceEnds(in text: String) -> Int {
+        let characters = Array(text)
+        return characters.indices.reduce(into: 0) { total, index in
+            let character = characters[index]
+            if character == "。" || character == "！" || character == "？" {
+                total += 1
+                return
+            }
+            guard character == "." || character == "!" || character == "?" else { return }
+            let next = index + 1 < characters.count ? characters[index + 1] : nil
+            if next == nil || next!.isWhitespace { total += 1 }
+        }
+    }
+
+    func testChunksAfterTheFirstStayWithinTheSentenceAndLengthBounds() {
+        // A long reply is what put the engine over: every chunk after the
+        // latency-oriented first one is one synthesis, so each must be small.
+        let reply = (1 ... 20)
+            .map { "This is body sentence number \($0), long enough to look like real assistant prose." }
+            .joined(separator: " ")
+        let chunks = PCMSpeechOutput.chunk(reply, maximumUTF16Length: 4000)
+
+        XCTAssertEqual(chunks.map(\.text).joined(), reply)
+        XCTAssertTrue(chunks.count > 1)
+        for chunk in chunks.dropFirst() {
+            XCTAssertLessThanOrEqual(
+                chunk.text.utf16.count,
+                PCMSpeechOutput.chunkMaximumUTF16Length,
+                "chunk over the length bound: \(chunk.text)"
+            )
+            XCTAssertLessThanOrEqual(
+                sentenceEnds(in: chunk.text),
+                PCMSpeechOutput.chunkSentenceLimit,
+                "chunk over the sentence bound: \(chunk.text)"
+            )
+        }
+    }
+
+    func testLongReplyIsStreamedRatherThanSynthesizedAsFewLargeUtterances() {
+        // Short sentences are the case the length bound cannot help with: 20 of
+        // them fit inside two 240-unit chunks, so without the sentence bound
+        // one synthesis would allocate for half the reply at a time.
+        let reply = (1 ... 20)
+            .map { "Sentence \($0) here." }
+            .joined(separator: " ")
+        let chunks = PCMSpeechOutput.chunk(reply, maximumUTF16Length: 4000)
+        let lengthBoundOnly = SpeechTextChunker.split(
+            reply,
+            maximumUTF16Length: PCMSpeechOutput.chunkMaximumUTF16Length
+        )
+
+        XCTAssertEqual(chunks.map(\.text).joined(), reply)
+        XCTAssertGreaterThan(
+            chunks.count,
+            lengthBoundOnly.count,
+            "the sentence bound must be what limits short-sentence prose"
+        )
+    }
+
+    func testChunkRangesRemainContiguousUnderTheSentenceBound() {
+        let reply = "Short opener. " + (1 ... 10)
+            .map { "Body sentence \($0) with a little more text in it." }
+            .joined(separator: " ")
+        let chunks = PCMSpeechOutput.chunk(reply, maximumUTF16Length: 4000)
+
+        var expected = 0
+        for chunk in chunks {
+            XCTAssertEqual(chunk.utf16Range.lowerBound, expected)
+            XCTAssertEqual(chunk.utf16Range.count, chunk.text.utf16.count)
+            expected = chunk.utf16Range.upperBound
+        }
+        XCTAssertEqual(expected, reply.utf16.count)
+        XCTAssertEqual(chunks.map(\.text).joined(), reply)
+    }
+
+    func testHostUtteranceLimitStillCapsBothBounds() {
+        let reply = (1 ... 10).map { "Sentence \($0) is here." }.joined(separator: " ")
+        let chunks = PCMSpeechOutput.chunk(reply, maximumUTF16Length: 40)
+
+        XCTAssertEqual(chunks.map(\.text).joined(), reply)
+        XCTAssertTrue(
+            chunks.allSatisfy { $0.text.utf16.count <= 40 },
+            "host limit ignored: \(chunks.map(\.text))"
+        )
     }
 }
 

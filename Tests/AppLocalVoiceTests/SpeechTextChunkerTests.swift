@@ -66,4 +66,95 @@ final class SpeechTextChunkerTests: XCTestCase {
             XCTAssertEqual(first.joined(), source, "seed \(seed)")
         }
     }
+
+    // MARK: Sentence bound
+
+    /// Counts sentence ends the way the chunker does, independently of it.
+    private func sentenceEnds(in text: String) -> Int {
+        let characters = Array(text)
+        return characters.indices.reduce(into: 0) { total, index in
+            let character = characters[index]
+            if character == "。" || character == "！" || character == "？" {
+                total += 1
+                return
+            }
+            guard character == "." || character == "!" || character == "?" else { return }
+            let next = index + 1 < characters.count ? characters[index + 1] : nil
+            if next == nil || next!.isWhitespace { total += 1 }
+        }
+    }
+
+    func testSentenceBoundCapsChunksAndPreservesSourceExactly() {
+        let source = (1 ... 12).map { "Sentence number \($0) says something." }.joined(separator: " ")
+        let chunks = SpeechTextChunker.split(source, maximumUTF16Length: 4000, maximumSentences: 3)
+
+        XCTAssertEqual(chunks.joined(), source)
+        XCTAssertTrue(chunks.count >= 4, "12 sentences capped at 3 must produce at least 4 chunks")
+        XCTAssertTrue(
+            chunks.allSatisfy { sentenceEnds(in: $0) <= 3 },
+            "chunks: \(chunks.map { sentenceEnds(in: $0) })"
+        )
+    }
+
+    func testSentenceBoundStillHonorsTheLengthLimit() {
+        // One sentence far longer than the length budget: the sentence bound
+        // cannot help, so the length bound must still cut it.
+        let source = String(repeating: "word ", count: 200) + "end."
+        let chunks = SpeechTextChunker.split(source, maximumUTF16Length: 64, maximumSentences: 3)
+
+        XCTAssertEqual(chunks.joined(), source)
+        XCTAssertTrue(chunks.allSatisfy { $0.utf16.count <= 64 })
+    }
+
+    func testSentenceBoundDoesNotBreakDecimalsOrDottedTokens() {
+        // A terminator forces a break now rather than merely being preferred,
+        // so an intra-token period must not register as a sentence end.
+        let source = "Version 3.5 shipped from example.com at 9.30 exactly. Then it stopped."
+        let chunks = SpeechTextChunker.split(source, maximumUTF16Length: 4000, maximumSentences: 1)
+
+        XCTAssertEqual(chunks.joined(), source)
+        XCTAssertEqual(chunks.count, 2)
+        XCTAssertEqual(chunks.first, "Version 3.5 shipped from example.com at 9.30 exactly.")
+        for token in ["3.5", "example.com", "9.30"] {
+            XCTAssertTrue(
+                chunks.contains { $0.contains(token) },
+                "\(token) was split across chunks: \(chunks)"
+            )
+        }
+    }
+
+    func testSentenceBoundHandlesFullWidthTerminatorsWithoutTrailingSpace() {
+        let source = "你好世界。これはテストです。三番目の文。四番目の文。"
+        let chunks = SpeechTextChunker.split(source, maximumUTF16Length: 4000, maximumSentences: 2)
+
+        XCTAssertEqual(chunks.joined(), source)
+        XCTAssertEqual(chunks.count, 2)
+        XCTAssertTrue(chunks.allSatisfy { sentenceEnds(in: $0) <= 2 })
+    }
+
+    func testSentenceBoundKeepsRangesContiguousAndExact() {
+        let source = "First one. Second one! Third one? Fourth 👩🏽‍💻 one. Fifth one."
+        let chunks = SpeechTextChunker.splitWithUTF16Ranges(
+            source,
+            maximumUTF16Length: 4000,
+            maximumSentences: 2
+        )
+
+        XCTAssertEqual(chunks.map(\.text).joined(), source)
+        var expected = 0
+        for chunk in chunks {
+            XCTAssertEqual(chunk.utf16Range.lowerBound, expected)
+            XCTAssertEqual(chunk.utf16Range.count, chunk.text.utf16.count)
+            expected = chunk.utf16Range.upperBound
+        }
+        XCTAssertEqual(expected, source.utf16.count)
+    }
+
+    func testOmittingTheSentenceBoundLeavesLengthOnlyBehaviorUnchanged() {
+        let source = "One sentence. Two sentences. A final clause"
+        XCTAssertEqual(
+            SpeechTextChunker.split(source, maximumUTF16Length: 20, maximumSentences: nil),
+            SpeechTextChunker.split(source, maximumUTF16Length: 20)
+        )
+    }
 }
