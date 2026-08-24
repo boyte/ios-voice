@@ -151,7 +151,7 @@ final class PCMSpeechOutputTests: XCTestCase {
         XCTAssertTrue(released)
     }
 
-    func testPrefetchesOneChunkAheadAndPublishesProgressOnlyAtCompletedChunkBoundaries() async throws {
+    func testNextChunkIsQueuedBeforeTheCurrentOneFinishesPlaying() async throws {
         let harness = makeHarness()
         // Eleven sentences under a 128-unit host limit: five fill the latency
         // chunk, the remaining six make two three-sentence chunks. The
@@ -168,22 +168,30 @@ final class PCMSpeechOutputTests: XCTestCase {
 
         let speech = Task { @MainActor in try await harness.output.speak(text, configuration: configuration) }
 
-        // Chunk 0 synthesized, scheduled; chunk 1 prefetched; chunk 2 must wait.
-        await waitUntil { await harness.synthesizer.requestedTexts.count == 2 }
-        await waitUntil { harness.engine.operations.contains(.schedule(100)) }
+        // The fix under test: chunk 1's buffer reaches the player while chunk 0
+        // is still playing. If this waits for a completion callback first, the
+        // player runs dry and the join between chunks is audible.
+        await waitUntil { harness.engine.operations.filter { $0 == .schedule(100) }.count == 2 }
         try? await Task.sleep(for: .milliseconds(50))
-        let requestedBeforeFirstCompletion = await harness.synthesizer.requestedTexts.count
-        XCTAssertEqual(requestedBeforeFirstCompletion, 2, "only current + next are ever in flight")
+
         let progressBeforeCompletion = await collector.ranges
         XCTAssertTrue(progressBeforeCompletion.isEmpty, "no progress before a chunk has played")
+        XCTAssertEqual(
+            harness.engine.operations.filter { $0 == .schedule(100) }.count, 2,
+            "lookahead is bounded: never more than the playing buffer plus one queued"
+        )
+        let requestedBeforeFirstCompletion = await harness.synthesizer.requestedTexts.count
+        XCTAssertEqual(
+            requestedBeforeFirstCompletion, 3,
+            "the chunk after the queued one synthesizes during playback too"
+        )
 
         harness.engine.fireCompletion(at: 0)
         await waitUntil { await collector.ranges.count == 1 }
-        await waitUntil { await harness.synthesizer.requestedTexts.count == 3 }
-        await waitUntil { harness.engine.operations.filter { $0 == .schedule(100) }.count == 2 }
+        await waitUntil { harness.engine.operations.filter { $0 == .schedule(100) }.count == 3 }
 
         harness.engine.fireCompletion(at: 1)
-        await waitUntil { harness.engine.operations.filter { $0 == .schedule(100) }.count == 3 }
+        await waitUntil { await collector.ranges.count == 2 }
         harness.engine.fireCompletion(at: 2)
         try await speech.value
 
@@ -562,6 +570,57 @@ final class PCMSpeechOutputTests: XCTestCase {
             chunks.allSatisfy { $0.text.utf16.count <= 40 },
             "host limit ignored: \(chunks.map(\.text))"
         )
+    }
+
+    // MARK: Hyphenated words
+
+    func testHyphenBetweenLettersIsRemovedSoTheWordIsSpokenAsOne() {
+        XCTAssertEqual(PCMSpeechOutput.joiningHyphenatedWords("re-implement"), "reimplement")
+        XCTAssertEqual(PCMSpeechOutput.joiningHyphenatedWords("well-known"), "wellknown")
+        XCTAssertEqual(PCMSpeechOutput.joiningHyphenatedWords("mother-in-law"), "motherinlaw")
+        // Non-breaking hyphen spells a word the same way an ASCII one does.
+        XCTAssertEqual(PCMSpeechOutput.joiningHyphenatedWords("re\u{2011}run"), "rerun")
+    }
+
+    func testHyphensThatAreNotSpellingOneWordSurvive() {
+        // Punctuation between clauses.
+        XCTAssertEqual(PCMSpeechOutput.joiningHyphenatedWords("wait - then go"), "wait - then go")
+        // A range or a minus: the halves really are separate.
+        XCTAssertEqual(PCMSpeechOutput.joiningHyphenatedWords("pages 3-5"), "pages 3-5")
+        XCTAssertEqual(PCMSpeechOutput.joiningHyphenatedWords("aisle 7-B"), "aisle 7-B")
+        // Nothing on one side to join to.
+        XCTAssertEqual(PCMSpeechOutput.joiningHyphenatedWords("-leading"), "-leading")
+        XCTAssertEqual(PCMSpeechOutput.joiningHyphenatedWords("trailing-"), "trailing-")
+        // Dashes proper are punctuation, never intra-word spelling.
+        XCTAssertEqual(PCMSpeechOutput.joiningHyphenatedWords("a\u{2013}b"), "a\u{2013}b")
+        XCTAssertEqual(PCMSpeechOutput.joiningHyphenatedWords("a\u{2014}b"), "a\u{2014}b")
+    }
+
+    func testTextWithoutHyphensIsReturnedUnchanged() {
+        let source = "A plain sentence, with punctuation! And a 👩🏽‍💻 grapheme."
+        XCTAssertEqual(PCMSpeechOutput.joiningHyphenatedWords(source), source)
+    }
+
+    func testEngineIsAskedForTheJoinedWordWhileProgressStillSpansTheOriginal() async throws {
+        let harness = makeHarness()
+        let text = "We should re-implement the well-known parser."
+        let configuration = SpeechConfiguration(locale: Locale(identifier: "en-US"))
+        let collector = ProgressRangeCollector()
+        await harness.output.setProgressHandler { range in await collector.append(range) }
+
+        let speech = Task { @MainActor in try await harness.output.speak(text, configuration: configuration) }
+        await waitUntil { await harness.synthesizer.requestedTexts.count == 1 }
+        await waitUntil { harness.engine.operations.contains(.schedule(100)) }
+        harness.engine.fireCompletion(at: 0)
+        try await speech.value
+
+        let requested = await harness.synthesizer.requestedTexts
+        XCTAssertEqual(requested, ["We should reimplement the wellknown parser."])
+
+        // The request text is untouched, so a caller highlighting the source
+        // still sees `re-implement` and the ranges still land on it.
+        let ranges = await collector.ranges
+        XCTAssertEqual(ranges, [0 ..< text.utf16.count])
     }
 }
 

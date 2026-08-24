@@ -8,9 +8,13 @@ import UIKit
 /// Ordering that matters:
 /// 1. The first chunk is synthesized *before* the speaking lease is acquired,
 ///    so external audio is not ducked while an engine computes.
-/// 2. While chunk N plays, at most chunk N+1 is synthesized. There is never an
-///    unbounded PCM queue.
-/// 3. Progress is published only for chunks that have finished playing, as the
+/// 2. Chunk N+1's audio is handed to the player as soon as it exists, without
+///    waiting for chunk N to finish. `AVAudioPlayerNode` plays queued buffers
+///    back to back, so the join is silent; waiting for the completion callback
+///    first would guarantee the player ran dry between every pair of chunks.
+/// 3. Lookahead is bounded, not unbounded: at most two buffers are queued and
+///    at most one synthesis is ever in flight.
+/// 4. Progress is published only for chunks that have finished playing, as the
 ///    chunk's exact UTF-16 range in the original request.
 ///
 /// Like `AppleSpeechOutput`, this type is main-actor isolated so notification
@@ -261,12 +265,54 @@ final class PCMSpeechOutput: SpeechOutput {
         return merged
     }
 
+    // MARK: Text normalization
+
+    /// Joins the halves of a hyphenated word before handing it to an engine.
+    ///
+    /// Grapheme-to-phoneme front ends generally treat a hyphen as its own
+    /// token, which makes `re-implement` two words rather than one: each half
+    /// is phonemized separately, gets its own stress, and a boundary lands in
+    /// the middle of the word. It comes out as "re. implement".
+    ///
+    /// Only a hyphen with a letter on both sides is removed — that is the case
+    /// where it is spelling one word. A hyphen with a space beside it is
+    /// punctuation and stays, as does one next to a digit, where it is a range
+    /// or a minus sign and the halves really are separate.
+    ///
+    /// This is applied to what the engine is asked to say, never to the
+    /// request text: progress is still reported as ranges in the original, so
+    /// a caller highlighting the source sees `re-implement` intact.
+    static func joiningHyphenatedWords(_ text: String) -> String {
+        guard text.contains(where: isJoiningHyphen) else { return text }
+        var result = ""
+        result.reserveCapacity(text.count)
+        var previous: Character?
+        let characters = Array(text)
+        for index in characters.indices {
+            let character = characters[index]
+            if isJoiningHyphen(character),
+               let previous, previous.isLetter,
+               index + 1 < characters.count, characters[index + 1].isLetter {
+                continue
+            }
+            result.append(character)
+            previous = character
+        }
+        return result
+    }
+
+    /// ASCII hyphen-minus and the non-breaking hyphen. Dashes proper (en, em)
+    /// are punctuation between clauses, never intra-word spelling.
+    private static func isJoiningHyphen(_ character: Character) -> Bool {
+        character == "-" || character == "\u{2011}"
+    }
+
     // MARK: Pipeline
 
     private func run(requestID: UInt64) async {
         guard let request = current, request.id == requestID else { return }
         do {
-            var pcm = try await synthesizeBounded(request.chunks[0], configuration: request.configuration, requestID: requestID)
+            let pcm = try await synthesizeBounded(request.chunks[0], configuration: request.configuration, requestID: requestID)
             guard isCurrent(requestID) else { return }
 
             try await player.begin(sampleRate: synthesizer.sampleRate, lifecyclePolicy: request.lifecyclePolicy)
@@ -282,27 +328,40 @@ final class PCMSpeechOutput: SpeechOutput {
 
             var index = 0
             var ticket = try player.schedule(pcm.samples)
+            var prefetch = synthesisTask(after: index, of: request, requestID: requestID)
             while true {
-                let nextIndex = index + 1
-                var prefetch: Task<SynthesizedSpeech, Error>?
-                if nextIndex < request.chunks.count {
-                    prefetch = synthesizeTask(request.chunks[nextIndex], configuration: request.configuration, requestID: requestID)
+                // Queue the next chunk behind the one playing as soon as its
+                // audio exists. This is the whole point: schedule first, wait
+                // afterwards. Waiting for the current chunk's completion
+                // callback before scheduling leaves the player with nothing
+                // queued, and the join is audible every single time.
+                var nextTicket: UInt64?
+                if let prefetch {
+                    let next = try await prefetch.value
+                    guard isCurrent(requestID) else { return }
+                    nextTicket = try player.schedule(next.samples)
                 }
+                // Start the synthesis after that one now, so it overlaps this
+                // chunk's playback too. One synthesis in flight and two
+                // buffers queued is the standing state, and the bound.
+                let following = nextTicket == nil
+                    ? nil
+                    : synthesisTask(after: index + 1, of: request, requestID: requestID)
+
                 let outcome = await player.outcome(of: ticket)
                 guard outcome == .played, isCurrent(requestID) else {
                     // `stop()`/interruption already resolved the request and
                     // released the lease; only the prefetch may drain late.
-                    prefetch?.cancel()
+                    following?.cancel()
                     return
                 }
                 if let handler = request.progressHandler {
                     await handler(request.chunks[index].utf16Range)
                 }
-                guard let prefetch else { break }
-                pcm = try await prefetch.value
-                guard isCurrent(requestID) else { return }
-                ticket = try player.schedule(pcm.samples)
-                index = nextIndex
+                guard let nextTicket else { break }
+                ticket = nextTicket
+                prefetch = following
+                index += 1
             }
 
             guard isCurrent(requestID) else { return }
@@ -329,6 +388,17 @@ final class PCMSpeechOutput: SpeechOutput {
         current?.id == requestID
     }
 
+    /// Starts synthesis of the chunk after `index`, or nil past the end.
+    private func synthesisTask(
+        after index: Int,
+        of request: ActiveRequest,
+        requestID: UInt64
+    ) -> Task<SynthesizedSpeech, Error>? {
+        let next = index + 1
+        guard next < request.chunks.count else { return nil }
+        return synthesizeTask(request.chunks[next], configuration: request.configuration, requestID: requestID)
+    }
+
     /// Runs one synthesis on the engine without blocking the main actor, and
     /// remembers it so `stop()` can cancel cooperative engines.
     private func synthesizeTask(
@@ -337,7 +407,7 @@ final class PCMSpeechOutput: SpeechOutput {
         requestID: UInt64
     ) -> Task<SynthesizedSpeech, Error> {
         let synthesizer = self.synthesizer
-        let text = chunk.text
+        let text = Self.joiningHyphenatedWords(chunk.text)
         let task = Task.detached(priority: .userInitiated) {
             try await synthesizer.synthesize(text, configuration: configuration)
         }
