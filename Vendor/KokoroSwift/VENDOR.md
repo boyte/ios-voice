@@ -22,9 +22,12 @@ Local modifications:
    enabled (MLX cannot build without Xcode's Metal toolchain and does not
    run on the iOS simulator).
 2. `Resources/config.json` moved from the upstream repository root into
-   this target directory; the manifest copies it so
-   `Bundle.module.url(forResource: "config", withExtension: "json",
-   subdirectory: "Resources")` resolves exactly as upstream.
+   this target directory as `KokoroData/config.json`, and
+   `TTSEngine/KokoroConfig.swift` looks it up with
+   `subdirectory: "KokoroData"` instead of `subdirectory: "Resources"`.
+   The directory must not be named `Resources`: `codesign` rejects a
+   resource bundle whose root contains one ("bundle format unrecognized,
+   invalid, or unsuitable"), which fails the Xcode Cloud archive.
 3. The target builds in Swift 5 language mode (upstream's mode); the rest
    of the package uses Swift 6.
 

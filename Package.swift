@@ -24,12 +24,25 @@ let package = Package(
         // so 0.31.x cannot be archived in CI. 0.30.2 exposes every product we
         // use (MLX, MLXNN, MLXRandom, MLXFFT, MLXFast) and no plugins.
         .package(url: "https://github.com/ml-explore/mlx-swift", exact: "0.30.2"),
-        .package(url: "https://github.com/mlalma/MisakiSwift", exact: "1.0.5"),
         .package(url: "https://github.com/mlalma/MLXUtilsLibrary.git", exact: "0.0.6")
     ],
     targets: [
         .target(name: "AppLocalVoiceAudioEngineSafe", path: "Sources/AppLocalVoiceAudioEngineSafe"),
         .target(name: "AppLocalVoice", dependencies: ["AppLocalVoiceAudioEngineSafe"]),
+        .target(
+            name: "MisakiSwift",
+            dependencies: [
+                .product(name: "MLX", package: "mlx-swift", condition: .when(traits: ["Kokoro"])),
+                .product(name: "MLXNN", package: "mlx-swift", condition: .when(traits: ["Kokoro"])),
+                .product(name: "MLXUtilsLibrary", package: "MLXUtilsLibrary", condition: .when(traits: ["Kokoro"]))
+            ],
+            path: "Vendor/MisakiSwift",
+            exclude: ["LICENSE", "VENDOR.md"],
+            // Must not be named "Resources": codesign rejects a resource
+            // bundle whose root holds a directory with that name.
+            resources: [.copy("MisakiData")],
+            swiftSettings: [.swiftLanguageMode(.v5)]
+        ),
         .target(
             name: "KokoroSwift",
             dependencies: [
@@ -38,12 +51,13 @@ let package = Package(
                 .product(name: "MLXRandom", package: "mlx-swift", condition: .when(traits: ["Kokoro"])),
                 .product(name: "MLXFFT", package: "mlx-swift", condition: .when(traits: ["Kokoro"])),
                 .product(name: "MLXFast", package: "mlx-swift", condition: .when(traits: ["Kokoro"])),
-                .product(name: "MisakiSwift", package: "MisakiSwift", condition: .when(traits: ["Kokoro"])),
+                "MisakiSwift",
                 .product(name: "MLXUtilsLibrary", package: "MLXUtilsLibrary", condition: .when(traits: ["Kokoro"]))
             ],
             path: "Vendor/KokoroSwift",
             exclude: ["LICENSE", "VENDOR.md"],
-            resources: [.copy("Resources")],
+            // Must not be named "Resources" (see MisakiSwift target above).
+            resources: [.copy("KokoroData")],
             swiftSettings: [.swiftLanguageMode(.v5)]
         ),
         .target(
