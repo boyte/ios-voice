@@ -11,6 +11,7 @@ import Foundation
 import KokoroSwift
 import MLX
 import MLXUtilsLibrary
+import os
 
 /// Where the Kokoro model and voice data live in the host app.
 ///
@@ -96,7 +97,7 @@ public actor KokoroSpeechEngine: SpeechSynthesizer {
             return
         }
         runtime = nil
-        MLX.GPU.clearCache()
+        MLX.Memory.clearCache()
     }
 
     /// The configured voice, for English locales only. Kokoro's voices are
@@ -119,10 +120,12 @@ public actor KokoroSpeechEngine: SpeechSynthesizer {
             if inFlight == 0, unloadPending {
                 unloadPending = false
                 self.runtime = nil
-                MLX.GPU.clearCache()
+                MLX.Memory.clearCache()
             }
         }
         try Task.checkCancellation()
+        MLX.Memory.peakMemory = 0  // setter resets; the value is ignored
+        let started = DispatchTime.now().uptimeNanoseconds
         do {
             let (samples, _) = try runtime.tts.generateAudio(
                 voice: runtime.voice,
@@ -130,11 +133,38 @@ public actor KokoroSpeechEngine: SpeechSynthesizer {
                 text: text,
                 speed: 1.0
             )
+            Self.record(utf16Length: text.utf16.count, sampleCount: samples.count, since: started)
             return SynthesizedSpeech(samples: samples)
         } catch {
+            Self.record(utf16Length: text.utf16.count, sampleCount: 0, since: started)
             throw Self.synthesisFailure
         }
     }
+
+    /// One content-free line per synthesis: how much memory the pass actually
+    /// needed and how much headroom the process had left. A long reply that
+    /// dies mid-playback leaves no app crash report — the system reclaims the
+    /// process — so without this the only evidence is a device-wide
+    /// `JetsamEvent` log. Carries no text, only lengths and byte counts.
+    private static let log = Logger(subsystem: "AppLocalVoice", category: "Kokoro")
+
+    private static func record(utf16Length: Int, sampleCount: Int, since start: UInt64) {
+        let elapsedMS = (DispatchTime.now().uptimeNanoseconds &- start) / 1_000_000
+        let snapshot = MLX.Memory.snapshot()
+        let peakMB = snapshot.peakMemory >> 20
+        let activeMB = snapshot.activeMemory >> 20
+        let cacheMB = snapshot.cacheMemory >> 20
+        let headroomMB = Int(os_proc_available_memory()) >> 20
+        log.info(
+            """
+            synth chars=\(utf16Length, privacy: .public) samples=\(sampleCount, privacy: .public) \
+            ms=\(elapsedMS, privacy: .public) peakMB=\(peakMB, privacy: .public) \
+            activeMB=\(activeMB, privacy: .public) cacheMB=\(cacheMB, privacy: .public) \
+            headroomMB=\(headroomMB, privacy: .public)
+            """
+        )
+    }
+
 
     // MARK: Loading
 
@@ -172,7 +202,7 @@ public actor KokoroSpeechEngine: SpeechSynthesizer {
     /// synthesis passes, and on iOS the app is killed for memory long before
     /// the cache is reclaimed, so hold it to a small ceiling once per process.
     private static let boundMemoryOnce: Void = {
-        MLX.GPU.set(cacheLimit: 32 * 1024 * 1024)
+        MLX.Memory.cacheLimit = 32 * 1024 * 1024
     }()
 
     private static func load(_ resources: KokoroSpeechResources) throws -> Runtime {

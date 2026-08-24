@@ -37,5 +37,16 @@ Local modifications:
    in-vocabulary tokens (`\n` and `-` are not in Kokoro's 114-entry vocab)
    makes that index -1 and aborts the process instead of throwing.
 
+5. `Decoder/Generator.swift` calls `MLX.eval` on the harmonic source, after
+   each residual block is folded into the running sum, and at the end of
+   each upsample stage. Upstream never evaluates: the entire
+   graph from the text encoder through both vocoder stages and the inverse
+   STFT is built lazily and evaluated once, at `asArray` in
+   `KokoroTTS.generateAudio`. Peak live memory and the size of a single
+   Metal command buffer therefore scale with the whole utterance rather
+   than one stage, which on-device is the difference between a short reply
+   and a long one. Staging the evaluation bounds both. Output is unchanged
+   — `eval` forces work that would happen anyway, it does not alter it.
+
 To update: diff upstream at the new tag against this directory minus the
 `#if Kokoro` wrappers, review, re-apply the wrappers, and update this file.

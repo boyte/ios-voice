@@ -156,7 +156,12 @@ class Generator {
     
     var har = MLX.concatenated([harSpec, harPhase], axis: 1)
     har = MLX.swappedAxes(har, 2, 1)
-        
+
+    // Local addition (see VENDOR.md): `har` is at full iSTFT resolution and
+    // every upsample stage reads it. Materialize it once so it is not carried
+    // as an unevaluated sub-graph through all of them.
+    MLX.eval(har)
+
     var newX = x
     for i in 0 ..< numUpsamples {
       newX = LeakyReLU(negativeSlope: 0.1)(newX)
@@ -181,8 +186,19 @@ class Generator {
           let temp = resBlocks[i * numKernels + j](newX, s)
           xs = xs! + temp
         }
+        // Local addition (see VENDOR.md): fold each residual block into the
+        // running sum before building the next, so one block's intermediates
+        // are freed instead of all three kernels' being held at once.
+        MLX.eval(xs!)
       }
       newX = xs! / numKernels
+
+      // Local addition (see VENDOR.md): without this the whole vocoder — both
+      // upsample stages and everything upstream — stays one lazy graph that is
+      // evaluated in a single shot at `asArray`. Peak live memory and the size
+      // of the Metal command buffer then scale with the entire utterance
+      // instead of one stage, which is what kills a long note on-device.
+      MLX.eval(newX)
     }
     
     newX = LeakyReLU(negativeSlope: 0.01)(newX)
