@@ -32,9 +32,15 @@ final class WeightLoader {
   /// - Parameter modelPath: URL to the directory containing model weight files
   /// - Returns: Dictionary mapping weight names to their processed MLXArray tensors
   /// - Note: Uses forced try (try!) as weight loading is critical and should fail fast if unsuccessful
-  static func loadWeights(modelPath: URL) -> [String: MLXArray] {
+  static func loadWeights(modelPath: URL, dtype: DType = .float32) -> [String: MLXArray] {
     // Load raw weights from disk
-    let weights = try! MLX.loadArrays(url: modelPath)
+    let rawWeights = try! MLX.loadArrays(url: modelPath)
+    // Local addition (see VENDOR.md): cast floating-point weights to the
+    // requested precision. Integer tensors are left alone — casting an index
+    // or a shape to a float would corrupt it.
+    let weights = dtype == .float32 ? rawWeights : rawWeights.mapValues { value in
+      value.dtype.isFloatingPoint ? value.asType(dtype) : value
+    }
     var sanitizedWeights: [String: MLXArray] = [:]
 
     // Process each weight based on its component prefix

@@ -13,6 +13,22 @@ import MLX
 import MLXUtilsLibrary
 import os
 
+/// Numeric precision the Kokoro model is held and computed in.
+///
+/// The weights ship as 32-bit floats. Loading them at half precision halves
+/// the resident model and most of the memory a synthesis pass allocates,
+/// which is the difference between comfortable and marginal on a phone. It
+/// is a quality trade: judge it by ear before shipping it.
+public enum KokoroPrecision: String, Sendable, Equatable, CaseIterable {
+    /// The weights as published. Highest fidelity, largest footprint.
+    case float32
+    /// Half precision. Roughly halves resident weights and most activations.
+    case float16
+    /// Half precision with float32's exponent range and fewer mantissa bits.
+    /// Same footprint as ``float16``; worth trying if ``float16`` sounds wrong.
+    case bfloat16
+}
+
 /// Where the Kokoro model and voice data live in the host app.
 ///
 /// The host ships these files (they are not part of the package): the
@@ -27,12 +43,21 @@ public struct KokoroSpeechResources: Sendable, Equatable {
     /// `"bf_emma"`). A `b…` prefix selects British English phonemization,
     /// anything else American English, matching Kokoro's voice naming.
     public var voice: String
+    /// Precision to load and compute in. Defaults to the published
+    /// ``KokoroPrecision/float32``.
+    public var precision: KokoroPrecision
 
     /// Creates a resource description for one bundled model and voice.
-    public init(modelFile: URL, voicesFile: URL, voice: String) {
+    public init(
+        modelFile: URL,
+        voicesFile: URL,
+        voice: String,
+        precision: KokoroPrecision = .float32
+    ) {
         self.modelFile = modelFile
         self.voicesFile = voicesFile
         self.voice = voice
+        self.precision = precision
     }
 }
 
@@ -151,7 +176,7 @@ public actor KokoroSpeechEngine: SpeechSynthesizer {
     /// Logged once per load: what the device allows and what MLX was told, so
     /// a later `peakMB` reading can be judged against the real ceiling rather
     /// than an assumed one.
-    private static func recordDeviceBudget() {
+    private static func recordDeviceBudget(precision: KokoroPrecision) {
         let info = MLX.GPU.deviceInfo()
         let workingSetMB = Int(info.maxRecommendedWorkingSetSize) >> 20
         let deviceMB = info.memorySize >> 20
@@ -160,7 +185,8 @@ public actor KokoroSpeechEngine: SpeechSynthesizer {
         let headroomMB = Int(os_proc_available_memory()) >> 20
         log.info(
             """
-            budget deviceMB=\(deviceMB, privacy: .public) \
+            budget precision=\(precision.rawValue, privacy: .public) \
+            deviceMB=\(deviceMB, privacy: .public) \
             workingSetMB=\(workingSetMB, privacy: .public) \
             cacheLimitMB=\(cacheLimitMB, privacy: .public) \
             memoryLimitMB=\(memoryLimitMB, privacy: .public) \
@@ -243,7 +269,7 @@ public actor KokoroSpeechEngine: SpeechSynthesizer {
 
     private static func load(_ resources: KokoroSpeechResources) throws -> Runtime {
         _ = boundMemoryOnce
-        recordDeviceBudget()
+        recordDeviceBudget(precision: resources.precision)
         let fileManager = FileManager.default
         guard fileManager.fileExists(atPath: resources.modelFile.path),
               fileManager.fileExists(atPath: resources.voicesFile.path) else {
@@ -255,8 +281,24 @@ public actor KokoroSpeechEngine: SpeechSynthesizer {
         guard let voice = voices[resources.voice] ?? voices[resources.voice + ".npy"] else {
             throw VoiceError.speechVoiceUnavailable(resources.voice)
         }
-        let tts = KokoroTTS(modelPath: resources.modelFile, g2p: .misaki)
-        return Runtime(tts: tts, voice: voice, language: language(forVoice: resources.voice))
+        let dtype = dataType(for: resources.precision)
+        let tts = KokoroTTS(modelPath: resources.modelFile, g2p: .misaki, dtype: dtype)
+        // The voice embedding is read from the archive as float32. Left that
+        // way it would promote every style-conditioned tensor back to float32
+        // and undo the saving, so it follows the model's precision.
+        return Runtime(
+            tts: tts,
+            voice: voice.dtype == dtype ? voice : voice.asType(dtype),
+            language: language(forVoice: resources.voice)
+        )
+    }
+
+    private static func dataType(for precision: KokoroPrecision) -> DType {
+        switch precision {
+        case .float32: .float32
+        case .float16: .float16
+        case .bfloat16: .bfloat16
+        }
     }
 
     private static func language(forVoice voice: String) -> Language {

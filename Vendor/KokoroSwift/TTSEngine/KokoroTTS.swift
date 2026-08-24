@@ -62,14 +62,21 @@ public final class KokoroTTS {
   
   /// Currently active language (cached to avoid reinitializing G2P)
   private var chosenLanguage: Language = .none
+
+  /// Local addition (see VENDOR.md): precision the model computes in.
+  public let modelDType: DType
   
   /// Initializes the Kokoro TTS engine with model weights and G2P processor.
   /// - Parameters:
   ///   - modelPath: URL to the directory containing model weights
   ///   - g2p: Grapheme-to-phoneme processor type (default: Misaki)
-  public init(modelPath: URL, g2p: G2P = .misaki) {
+  public init(modelPath: URL, g2p: G2P = .misaki, dtype: DType = .float32) {
+    // Local addition (see VENDOR.md): the precision the weights are held and
+    // computed in. Half precision halves resident weights and most
+    // activations; see `generateAudio` for the leaves that must follow it.
+    self.modelDType = dtype
     // Load and sanitize model weights
-    let sanitizedWeights = WeightLoader.loadWeights(modelPath: modelPath)
+    let sanitizedWeights = WeightLoader.loadWeights(modelPath: modelPath, dtype: dtype)
     let config = KokoroConfig.loadConfig()
     
     // Initialize BERT model for phoneme encoding
@@ -196,11 +203,16 @@ public final class KokoroTTS {
     )
     
     // Step 5: Predict phoneme durations
-    let (predictedDurations, alignmentTarget) = predictDurations(
+    let (predictedDurations, rawAlignmentTarget) = predictDurations(
       features: durationFeatures,
       batchSize: paddedInputIds.shape[1],
       speed: speed
     )
+    // Local addition (see VENDOR.md): the alignment matrix is built from Swift
+    // Floats, so it is always float32. Left alone it would promote every
+    // downstream tensor back to float32 through these two matmuls and undo
+    // half precision for the whole decoder.
+    let alignmentTarget = rawAlignmentTarget.asType(modelDType)
     
     // Step 6: Generate aligned encodings
     let alignedEncoding = durationFeatures.transposed(0, 2, 1).matmul(alignmentTarget)

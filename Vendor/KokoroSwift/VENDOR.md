@@ -48,5 +48,18 @@ Local modifications:
    and a long one. Staging the evaluation bounds both. Output is unchanged
    — `eval` forces work that would happen anyway, it does not alter it.
 
+6. `TTSEngine/WeightLoader.swift`, `TTSEngine/KokoroTTS.swift`, and
+   `Decoder/Generator.swift` accept a precision. `loadWeights` casts
+   floating-point weights to the requested `DType` (integer tensors are
+   left alone), `KokoroTTS` records it as `modelDType`, and `generateAudio`
+   casts the alignment matrix to it — that matrix is built from Swift
+   `Float`s, so left as float32 it would promote the whole decoder back
+   through its two matmuls and undo the saving. `Generator` forces the
+   magnitude spectrogram to float32 before `exp`: float16 saturates at
+   ~65504, so an activation above about 11 would become `inf` and the
+   utterance would come out as noise. That slice is only `n_fft/2+1`
+   channels wide, so the cast costs little. Upstream is float32 only, and
+   float32 remains the default here.
+
 To update: diff upstream at the new tag against this directory minus the
 `#if Kokoro` wrappers, review, re-apply the wrappers, and update this file.

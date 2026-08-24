@@ -207,8 +207,13 @@ class Generator {
     newX = convPost(newX, conv: MLX.conv1d)
     newX = MLX.swappedAxes(newX, 2, 1)
     
-    let spec = MLX.exp(newX[0..., 0 ..< (postNFFt / 2 + 1), 0...])
-    let phase = MLX.sin(newX[0..., (postNFFt / 2 + 1)..., 0...])
+    // Local addition (see VENDOR.md): the magnitude spectrogram is the
+    // exponential of the network's output, and float16 saturates at ~65504 —
+    // an activation above about 11 would become inf and the utterance would
+    // come out as silence or noise. This slice is narrow (n_fft/2+1 channels),
+    // so forcing it to float32 costs little and removes the overflow.
+    let spec = MLX.exp(newX[0..., 0 ..< (postNFFt / 2 + 1), 0...].asType(.float32))
+    let phase = MLX.sin(newX[0..., (postNFFt / 2 + 1)..., 0...].asType(.float32))
 
     let result = stft.inverse(magnitude: spec, phase: phase)
     return result
