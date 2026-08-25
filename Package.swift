@@ -34,6 +34,10 @@ let package = Package(
             dependencies: [
                 .product(name: "MLX", package: "mlx-swift", condition: .when(traits: ["Kokoro"])),
                 .product(name: "MLXNN", package: "mlx-swift", condition: .when(traits: ["Kokoro"])),
+                // Imported by the sources; without it the module only links
+                // because KokoroSwift happens to pull MLXRandom in alongside
+                // it, which the Swift dependency scanner rightly warns about.
+                .product(name: "MLXRandom", package: "mlx-swift", condition: .when(traits: ["Kokoro"])),
                 .product(name: "MLXUtilsLibrary", package: "MLXUtilsLibrary", condition: .when(traits: ["Kokoro"]))
             ],
             path: "Vendor/MisakiSwift",
