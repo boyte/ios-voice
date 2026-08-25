@@ -87,12 +87,19 @@ public actor KokoroSpeechEngine: SpeechSynthesizer {
 
     private struct Runtime {
         let tts: KokoroTTS
-        let voice: MLXArray
-        let language: Language
+        /// Every voice in the archive, kept so switching does not re-read it.
+        /// All 28 published voices together are about 14 MB against a ~330 MB
+        /// model, so retaining them costs far less than reloading one would.
+        let voices: [String: MLXArray]
+        var voice: MLXArray
+        var language: Language
     }
 
     private var resources: KokoroSpeechResources
     private var runtime: Runtime?
+    /// Voice names from the archive, cached so listing them does not depend on
+    /// the model being loaded.
+    private var voiceNames: [String]?
     private var loading: Task<Void, Error>?
     private var inFlight = 0
     private var unloadPending = false
@@ -137,12 +144,49 @@ public actor KokoroSpeechEngine: SpeechSynthesizer {
         MLX.Memory.clearCache()
     }
 
-    /// The configured voice, for English locales only. Kokoro's voices are
-    /// English; the quality class is provider-defined, not an Apple class.
+    /// Every voice in the archive, for English locales only. Kokoro's voices
+    /// are English; the quality class is provider-defined, not an Apple class.
+    ///
+    /// Reads the voice archive if the model is not loaded — that is the small
+    /// file, so a host can populate a picker without paying for the model.
     public func availableVoices(for locale: Locale) async -> [SpeechVoice] {
         guard locale.language.languageCode?.identifier.lowercased() == "en" else { return [] }
-        let language = Self.language(forVoice: resources.voice) == .enGB ? "en-GB" : "en-US"
-        return [SpeechVoice(id: resources.voice, name: resources.voice, languageIdentifier: language, quality: .enhanced)]
+        return names().map { name in
+            SpeechVoice(
+                id: name,
+                name: Self.displayName(forVoice: name),
+                languageIdentifier: Self.language(forVoice: name) == .enGB ? "en-GB" : "en-US",
+                quality: .enhanced
+            )
+        }
+    }
+
+    /// Switches the speaking voice, by its id from ``availableVoices(for:)``.
+    ///
+    /// Unlike precision, this does not touch the model: Kokoro takes the voice
+    /// as an argument to each synthesis, so the swap is an embedding lookup
+    /// against voices already in memory. It applies to the next chunk
+    /// synthesized, which mid-reply means the remainder of that reply.
+    ///
+    /// A `b` prefix also switches phonemization to British English, matching
+    /// Kokoro's voice naming. Unknown ids are ignored.
+    public func setVoice(_ voice: String) async {
+        guard resources.voice != voice else { return }
+        guard names().contains(voice) else { return }
+        resources.voice = voice
+        guard var runtime, let embedding = Self.embedding(named: voice, in: runtime.voices) else { return }
+        runtime.voice = Self.cast(embedding, to: resources.precision)
+        runtime.language = Self.language(forVoice: voice)
+        self.runtime = runtime
+    }
+
+    private func names() -> [String] {
+        if let voiceNames { return voiceNames }
+        let keys = runtime?.voices.keys ?? NpyzReader.read(fileFromPath: resources.voicesFile)?.keys
+        guard let keys else { return [resources.voice] }
+        let names = keys.map { $0.hasSuffix(".npy") ? String($0.dropLast(4)) : $0 }.sorted()
+        voiceNames = names
+        return names
     }
 
     /// Synthesizes one chunk at speed 1.0. Apple-only `SpeechConfiguration`
@@ -290,7 +334,7 @@ public actor KokoroSpeechEngine: SpeechSynthesizer {
         guard let voices = NpyzReader.read(fileFromPath: resources.voicesFile) else {
             throw loadFailure
         }
-        guard let voice = voices[resources.voice] ?? voices[resources.voice + ".npy"] else {
+        guard let voice = embedding(named: resources.voice, in: voices) else {
             throw VoiceError.speechVoiceUnavailable(resources.voice)
         }
         let dtype = dataType(for: resources.precision)
@@ -300,9 +344,30 @@ public actor KokoroSpeechEngine: SpeechSynthesizer {
         // and undo the saving, so it follows the model's precision.
         return Runtime(
             tts: tts,
-            voice: voice.dtype == dtype ? voice : voice.asType(dtype),
+            voices: voices,
+            voice: cast(voice, to: resources.precision),
             language: language(forVoice: resources.voice)
         )
+    }
+
+    /// Archive keys appear with or without the `.npy` suffix depending on how
+    /// the file was written; accept either.
+    private static func embedding(named voice: String, in voices: [String: MLXArray]) -> MLXArray? {
+        voices[voice] ?? voices[voice + ".npy"]
+    }
+
+    private static func cast(_ voice: MLXArray, to precision: KokoroPrecision) -> MLXArray {
+        let dtype = dataType(for: precision)
+        return voice.dtype == dtype ? voice : voice.asType(dtype)
+    }
+
+    /// `bf_emma` reads as "Emma (British)". The prefix encodes accent and the
+    /// speaker's voice type, which belongs in a picker label, not an id.
+    private static func displayName(forVoice voice: String) -> String {
+        let parts = voice.split(separator: "_", maxSplits: 1)
+        guard parts.count == 2, let given = parts.last else { return voice }
+        let name = given.prefix(1).uppercased() + given.dropFirst()
+        return language(forVoice: voice) == .enGB ? "\(name) (British)" : "\(name) (American)"
     }
 
     private static func dataType(for precision: KokoroPrecision) -> DType {
