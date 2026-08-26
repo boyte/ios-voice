@@ -120,19 +120,51 @@ advisory UTF-16 text-range data for optional highlighting.
 
 ### Use a different voice engine
 
-Apple's synthesizer is the default. To speak through another on-device engine,
-construct the service with any type conforming to `SpeechSynthesizer` — the
-queue, events, barge-in, and progress are identical for every engine:
+Apple's synthesizer is the default. `AppLocalVoice()` uses it without MLX,
+Kokoro, or model files. To speak through another on-device engine, construct
+the service with any type conforming to `SpeechSynthesizer` — the queue,
+events, barge-in, and progress are identical for every engine:
 
 ```swift
 let voice = AppLocalVoice(synthesizer: engine)
 ```
 
-`AppLocalVoiceKokoro` (Kokoro-82M on MLX, English, Apple GPUs only) is the
-first engine product. Enable the package trait `Kokoro` in the dependency that
-uses it; consumers that don't never fetch or build it. The engine is
-host-owned: call `prepare()` early to load the model and `unload()` on memory
-pressure. Hosts ship the model and voice files themselves.
+`AppLocalVoiceKokoro` is the first optional engine product: Kokoro-82M on
+MLX, English only, and physical iPhone/iPad hardware only. Enable the package
+trait where the engine is used; consumers that use only `AppLocalVoice` do not
+fetch or build the MLX dependencies:
+
+```swift
+.package(
+    url: "https://github.com/boyte/ios-voice.git",
+    branch: "main", // Use the next tagged release when it is available.
+    traits: ["Kokoro"]
+)
+// Then add .product(name: "AppLocalVoiceKokoro", package: "ios-voice").
+```
+
+An Xcode application that cannot enable a dependency trait directly can use a
+small wrapper package; see
+[LocalEchoKokoro](Examples/LocalEcho/LocalEchoKokoro/Package.swift) for the
+complete pattern. The host supplies `kokoro-v1_0.safetensors` and `voices.npz`,
+then owns model lifetime:
+
+```swift
+import AppLocalVoice
+import AppLocalVoiceKokoro
+
+let engine = KokoroSpeechEngine(resources: .init(
+    modelFile: modelURL,
+    voicesFile: voicesURL,
+    voice: "af_heart"
+))
+Task { try? await engine.prepare() }
+let voice = AppLocalVoice(synthesizer: engine)
+```
+
+Call `unload()` on memory pressure. Kokoro does not run in Simulator and is
+never selected automatically; if its model files are unavailable, keep using
+the default Apple synthesizer.
 
 ## Prepare recognition
 
