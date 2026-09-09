@@ -6,6 +6,12 @@ All notable changes to AppLocalVoice are documented here.
 
 ### Prepared speech units
 
+- Newline-delimited prepared units can now share one continuous PCM request,
+  preserving phrase boundaries while bounded synthesis lookahead fills the
+  next audio buffer. Separators remain framing only, with exact source ranges.
+  Verified 31 PCM tests, including second-buffer scheduling before first-buffer
+  completion and a full-size 240-unit phrase without a mid-sentence split.
+
 - Added opt-in `SpeechConfiguration.preservesPreparedSpeechUnits`. PCM output
   keeps caller-prepared text intact up to the existing 240 UTF-16 safety limit,
   avoiding the default 140-unit first-chunk split. Default chunking and Apple

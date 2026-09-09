@@ -67,6 +67,35 @@ final class PCMSpeechOutputTests: XCTestCase {
         XCTAssertFalse(SpeechConfiguration().preservesPreparedSpeechUnits)
     }
 
+    func testPreparedUnitsAreSynthesizedAndQueuedBeforeFirstAudioCompletes() async throws {
+        let units = ["Take the train to Spiez.", "Then change for Interlaken Ost.", "The journey takes four hours."]
+        let harness = makeHarness()
+        var configuration = SpeechConfiguration(locale: Locale(identifier: "en-US"))
+        configuration.preservesPreparedSpeechUnits = true
+        let speech = Task { @MainActor in try await harness.output.speak(units.joined(separator: "\n"), configuration: configuration) }
+        await waitUntil { harness.engine.operations.filter { $0 == .schedule(100) }.count == 2 }
+        let requested = await harness.synthesizer.requestedTexts
+        XCTAssertEqual(Array(requested.prefix(2)), Array(units.prefix(2)), "Next unit synthesized before any audio completion")
+        XCTAssertEqual(harness.engine.operations.filter { $0 == .schedule(100) }.count, 2, "Only bounded lookahead is queued")
+        harness.engine.fireCompletion(at: 0)
+        await waitUntil { harness.engine.operations.filter { $0 == .schedule(100) }.count == 3 }
+        harness.engine.fireCompletion(at: 1)
+        harness.engine.fireCompletion(at: 2)
+        try await speech.value
+        let all = await harness.synthesizer.requestedTexts
+        XCTAssertEqual(all, units)
+        XCTAssertEqual(harness.sessionDriver.activationCalls, 1)
+        XCTAssertEqual(harness.sessionDriver.deactivationCalls, 1)
+    }
+
+    func testFullSizePreparedUnitsKeepTheirBoundariesAndSourceRanges() {
+        let unit = String(repeating: "a", count: 239) + "."
+        let text = unit + "\nNext sentence."
+        let chunks = PCMSpeechOutput.chunk(text, maximumUTF16Length: 4000, prepared: true)
+        XCTAssertEqual(chunks.map(\.text), [unit, "Next sentence."])
+        XCTAssertEqual(chunks.map(\.utf16Range), [0..<240, 241..<255])
+    }
+
     func testChunkingUsesAShortFirstChunkThenSentenceGroupsWithExactRanges() {
         let sentence = "This is a sentence that is long enough to matter. "
         let text = String(repeating: sentence, count: 12).trimmingCharacters(in: .whitespaces)

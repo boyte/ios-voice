@@ -229,7 +229,9 @@ See [LICENSE](LICENSE).
 ### Caller-prepared speech
 
 When a backend already returns complete spoken phrases, set
-`configuration.preservesPreparedSpeechUnits = true` before enqueueing each unit.
+`configuration.preservesPreparedSpeechUnits = true` and enqueue the units joined
+with newlines as one request. The next unit synthesizes while audio plays;
+submitting and awaiting each unit separately defeats that lookahead.
 PCM synthesis preserves a unit up to 240 UTF-16 code units (or the configured
 host limit, if lower), including its punctuation. Oversized units still split
 safely. The default first-audio optimization and Apple output are unchanged.

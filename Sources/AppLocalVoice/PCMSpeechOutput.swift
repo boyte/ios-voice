@@ -199,9 +199,20 @@ final class PCMSpeechOutput: SpeechOutput {
     /// `maximumCharactersPerUtterance`.
     static func chunk(_ text: String, maximumUTF16Length: Int, prepared: Bool = false) -> [SpeechTextChunker.Chunk] {
         if prepared {
-            return mergingUnspeakable(SpeechTextChunker.splitWithUTF16Ranges(
-                text, maximumUTF16Length: max(1, min(chunkMaximumUTF16Length, maximumUTF16Length))
-            ))
+            // Newlines frame prepared units in one continuous queue request.
+            // Framing separators are not synthesized; ranges still point into
+            // the original request so completion and cancellation stay exact.
+            var offset = 0
+            return text.components(separatedBy: "\n").flatMap { unit in
+                let start = offset
+                offset += unit.utf16.count + 1
+                return mergingUnspeakable(SpeechTextChunker.splitWithUTF16Ranges(
+                    unit, maximumUTF16Length: max(1, min(chunkMaximumUTF16Length, maximumUTF16Length))
+                )).map { chunk in
+                    SpeechTextChunker.Chunk(text: chunk.text,
+                        utf16Range: (start + chunk.utf16Range.lowerBound)..<(start + chunk.utf16Range.upperBound))
+                }
+            }
         }
         let firstLimit = max(1, min(firstChunkMaximumUTF16Length, maximumUTF16Length))
         let restLimit = max(1, min(chunkMaximumUTF16Length, maximumUTF16Length))
