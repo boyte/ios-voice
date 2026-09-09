@@ -4,6 +4,16 @@ All notable changes to AppLocalVoice are documented here.
 
 ## Unreleased
 
+### Prepared speech units
+
+- Added opt-in `SpeechConfiguration.preservesPreparedSpeechUnits`. PCM output
+  keeps caller-prepared text intact up to the existing 240 UTF-16 safety limit,
+  avoiding the default 140-unit first-chunk split. Default chunking and Apple
+  output are unchanged. Oversized input retains bounded, Unicode-safe splitting.
+- Verified 29 PCM simulator tests, including exact synthesizer input, queued
+  playback and interruption paths. Perceived Kokoro cadence on a physical device
+  remains a listening check; no voice-quality claim is inferred from unit tests.
+
 ### Pluggable text-to-speech engines
 
 - Vendored the Kokoro MLX runtime at `Vendor/KokoroSwift` (from

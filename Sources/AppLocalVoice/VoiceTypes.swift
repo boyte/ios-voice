@@ -51,6 +51,10 @@ public struct SpeechConfiguration: Sendable, Equatable {
     /// bounded while still allowing long responses. A complete speech request
     /// is also limited to 1,048,576 UTF-16 code units.
     public var maximumCharactersPerUtterance: Int
+    /// Preserve each caller-prepared PCM speech unit instead of applying the
+    /// short first-chunk latency split. The 240 UTF-16 safety ceiling and host
+    /// limit still apply. Apple speech output is unaffected.
+    public var preservesPreparedSpeechUnits: Bool = false
 
     /// Creates synthesis configuration with validated-at-use defaults.
     public init(

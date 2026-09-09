@@ -133,7 +133,7 @@ final class PCMSpeechOutput: SpeechOutput {
         try AppleSpeechOutput.validateText(normalized)
         try AppleSpeechOutput.validate(configuration)
 
-        let chunks = Self.chunk(normalized, maximumUTF16Length: configuration.maximumCharactersPerUtterance)
+        let chunks = Self.chunk(normalized, maximumUTF16Length: configuration.maximumCharactersPerUtterance, prepared: configuration.preservesPreparedSpeechUnits)
         guard !chunks.isEmpty else { return }
 
         nextID &+= 1
@@ -197,7 +197,12 @@ final class PCMSpeechOutput: SpeechOutput {
     /// ``chunkSentenceLimit`` sentences, each carrying its exact UTF-16 range
     /// in `text`. Both length limits are capped by the host's
     /// `maximumCharactersPerUtterance`.
-    static func chunk(_ text: String, maximumUTF16Length: Int) -> [SpeechTextChunker.Chunk] {
+    static func chunk(_ text: String, maximumUTF16Length: Int, prepared: Bool = false) -> [SpeechTextChunker.Chunk] {
+        if prepared {
+            return mergingUnspeakable(SpeechTextChunker.splitWithUTF16Ranges(
+                text, maximumUTF16Length: max(1, min(chunkMaximumUTF16Length, maximumUTF16Length))
+            ))
+        }
         let firstLimit = max(1, min(firstChunkMaximumUTF16Length, maximumUTF16Length))
         let restLimit = max(1, min(chunkMaximumUTF16Length, maximumUTF16Length))
         guard let first = SpeechTextChunker.splitWithUTF16Ranges(text, maximumUTF16Length: firstLimit).first else {

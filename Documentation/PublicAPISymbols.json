@@ -10341,6 +10341,42 @@
       }
     },
     {
+      "precise": "s:13AppLocalVoice19SpeechConfigurationV017preservesPreparedD5UnitsSbvp",
+      "title": "preservesPreparedSpeechUnits",
+      "kind": "swift.property",
+      "fingerprint": {
+        "kind": "swift.property",
+        "pathComponents": [
+          "SpeechConfiguration",
+          "preservesPreparedSpeechUnits"
+        ],
+        "declarationFragments": [
+          {
+            "kind": "keyword",
+            "spelling": "var"
+          },
+          {
+            "kind": "text",
+            "spelling": " "
+          },
+          {
+            "kind": "identifier",
+            "spelling": "preservesPreparedSpeechUnits"
+          },
+          {
+            "kind": "text",
+            "spelling": ": "
+          },
+          {
+            "kind": "typeIdentifier",
+            "spelling": "Bool",
+            "preciseIdentifier": "s:Sb"
+          }
+        ],
+        "availability": null
+      }
+    },
+    {
       "precise": "s:13AppLocalVoice19SpeechConfigurationV15voiceIdentifierSSSgvp",
       "title": "voiceIdentifier",
       "kind": "swift.property",

@@ -633,6 +633,9 @@ Simulator evidence does not replace the physical-device matrix.
 - `voiceIdentifier` (swift.property)
 <!-- api-symbol: s:13AppLocalVoice19SpeechConfigurationV16preferredQualityAA0dcG0Ovp -->
 - `preferredQuality` (swift.property)
+<!-- api-symbol: s:13AppLocalVoice19SpeechConfigurationV017preservesPreparedD5UnitsSbvp -->
+- `preservesPreparedSpeechUnits` (swift.property): opt in to preserving caller-prepared PCM units up to 240 UTF-16 code units, subject to the host limit. Defaults to false; Apple output is unchanged.
+
 <!-- api-symbol: s:13AppLocalVoice19SpeechConfigurationV29maximumCharactersPerUtteranceSivp -->
 - `maximumCharactersPerUtterance` (swift.property)
 <!-- api-symbol: s:13AppLocalVoice19SpeechConfigurationV4rateSfvp -->

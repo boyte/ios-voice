@@ -41,6 +41,32 @@ final class PCMSpeechOutputTests: XCTestCase {
 
     // MARK: Chunking
 
+    func testPreparedUnitReachesSynthesizerIntactBeyondTheLatencyLimit() async throws {
+        let text = "Take the train from Milan Centrale to Domodossola, then continue through Spiez to Interlaken Ost, keeping enough time between connections to enjoy the journey."
+        XCTAssertGreaterThan(text.utf16.count, 140)
+        XCTAssertLessThanOrEqual(text.utf16.count, 240)
+        let harness = makeHarness()
+        var configuration = SpeechConfiguration(locale: Locale(identifier: "en-US"))
+        configuration.preservesPreparedSpeechUnits = true
+        let speech = Task { @MainActor in try await harness.output.speak(text, configuration: configuration) }
+        await waitUntil { harness.engine.operations.contains(.schedule(100)) }
+        let actual = await harness.synthesizer.requestedTexts
+        XCTAssertEqual(actual, [text], "Inspect the actual engine input, not only a chunker helper")
+        harness.engine.fireCompletion(at: 0)
+        try await speech.value
+    }
+
+    func testPreparedModeStillBoundsOversizedInputAndPreservesExactRanges() {
+        let text = String(repeating: "A long prepared clause, with café and 👩🏽‍💻 intact. ", count: 20)
+        for limit in [128, 4000] {
+            let chunks = PCMSpeechOutput.chunk(text, maximumUTF16Length: limit, prepared: true)
+            XCTAssertEqual(chunks.map(\.text).joined(), text)
+            XCTAssertTrue(chunks.allSatisfy { $0.text.utf16.count <= min(240, limit) })
+            XCTAssertEqual(chunks.last?.utf16Range.upperBound, text.utf16.count)
+        }
+        XCTAssertFalse(SpeechConfiguration().preservesPreparedSpeechUnits)
+    }
+
     func testChunkingUsesAShortFirstChunkThenSentenceGroupsWithExactRanges() {
         let sentence = "This is a sentence that is long enough to matter. "
         let text = String(repeating: sentence, count: 12).trimmingCharacters(in: .whitespaces)
